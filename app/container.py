@@ -11,6 +11,7 @@ from app.domain.ports.email_port import EmailPort
 from app.domain.ports.llm_port import LLMPort
 from app.domain.ports.stt_port import STTPort
 from app.domain.ports.tts_port import TTSPort
+from app.domain.ports.voz_realtime_port import VozRealtimePort
 from app.infrastructure.email.ses import SESEmail
 from app.infrastructure.llm.bedrock_converse import BedrockConverse
 from app.infrastructure.llm.groq_llm import GroqLLM
@@ -19,6 +20,7 @@ from app.infrastructure.persistence.db import crear_session_factory
 from app.infrastructure.stt.groq_whisper import GroqWhisperSTT
 from app.infrastructure.stt.transcribe_aws import TranscribeAWS
 from app.infrastructure.tts.polly import PollyTTS
+from app.infrastructure.voz_realtime.nova_sonic import NovaSonicRealtime
 
 _PROMPTS_DIR = Path(__file__).parent / "prompts"
 
@@ -31,6 +33,7 @@ class Container:
     stt: STTPort
     llm: LLMPort
     tts: TTSPort
+    voz_realtime: VozRealtimePort
     coach_system_prompt: str
 
 
@@ -45,9 +48,10 @@ def build_container(settings: Settings | None = None) -> Container:
     # Ver docs/adr/ADR-009-groq-stt-temporal.md. Volver a "aws" es cambiar esta linea.
     stt: STTPort = TranscribeAWS(settings) if settings.provider_stt == "aws" else GroqWhisperSTT(settings)
 
-    # Gateway de modelos: cadena ordenada de proveedores, no un reintento de la misma
-    # llamada. Los tiers barato/Groq son opcionales — si no estan configurados, el
-    # gateway sigue funcionando solo con el modelo principal de Bedrock.
+    # Gateway de modelos (docs/adr/ADR-011-nova-sonic-y-gateway-de-modelos.md): cadena
+    # ordenada de proveedores, no un reintento de la misma llamada. Los tiers barato/Groq
+    # son opcionales — si no estan configurados, el gateway sigue funcionando solo con
+    # el modelo principal de Bedrock.
     tiers_llm: list[LLMPort] = [BedrockConverse(settings, settings.bedrock_model_id)]
     if settings.bedrock_model_id_barato:
         tiers_llm.append(BedrockConverse(settings, settings.bedrock_model_id_barato))
@@ -56,6 +60,11 @@ def build_container(settings: Settings | None = None) -> Container:
     llm: LLMPort = ModelGatewayLLM(tiers_llm)
 
     tts: TTSPort = PollyTTS(settings)
+
+    # Nivel 0 del pipeline de voz (docs/adr/ADR-011-nova-sonic-y-gateway-de-modelos.md):
+    # audio en tiempo real. Si falla al abrir sesion o a media conversacion, el frontend
+    # cae al endpoint POST /api/mensajes de siempre (STT+LLM gateway+TTS de arriba).
+    voz_realtime: VozRealtimePort = NovaSonicRealtime(settings)
 
     coach_system_prompt = (_PROMPTS_DIR / "coach_system.md").read_text(encoding="utf-8")
 
@@ -66,5 +75,6 @@ def build_container(settings: Settings | None = None) -> Container:
         stt=stt,
         llm=llm,
         tts=tts,
+        voz_realtime=voz_realtime,
         coach_system_prompt=coach_system_prompt,
     )

@@ -1,5 +1,9 @@
 # AWS
 boto3>=1.35
+# Nova Sonic (voz en tiempo real) no usa boto3 -- InvokeModelWithBidirectionalStream
+# exige este SDK async aparte, pre-1.0. Ver docs/adr/ADR-011-nova-sonic-y-gateway-de-modelos.md
+aws_sdk_bedrock_runtime>=0.1.0
+smithy-aws-core>=0.0.1
 
 # Web
 fastapi>=0.115

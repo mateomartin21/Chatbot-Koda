@@ -19,6 +19,7 @@ from app.domain.ports.llm_port import LLMPort
 from app.domain.ports.repositories import RunnerRepo, TokenAccesoRepo
 from app.domain.ports.stt_port import STTPort
 from app.domain.ports.tts_port import TTSPort
+from app.domain.ports.voz_realtime_port import VozRealtimePort
 from app.infrastructure.persistence.repos import SqlRunnerRepo, SqlTokenAccesoRepo
 
 COOKIE_NAME = "koda_session"
@@ -50,6 +51,10 @@ def get_tts_port(container: Container = Depends(get_container)) -> TTSPort:
     return container.tts
 
 
+def get_voz_realtime_port(container: Container = Depends(get_container)) -> VozRealtimePort:
+    return container.voz_realtime
+
+
 def get_coach_system_prompt(container: Container = Depends(get_container)) -> str:
     return container.coach_system_prompt
 
@@ -79,12 +84,10 @@ def crear_jwt(runner_id: UUID, settings: Settings) -> str:
     return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
 
 
-async def get_current_runner(
-    request: Request,
-    repos: Repos = Depends(get_repos),
-    settings: Settings = Depends(get_settings),
-) -> Runner:
-    token = request.cookies.get(COOKIE_NAME)
+async def runner_desde_token(token: str | None, repos: Repos, settings: Settings) -> Runner:
+    """Compartido entre HTTP (get_current_runner, via cookie de Request) y el
+    WebSocket de voz en tiempo real (via cookie del handshake) — misma regla en
+    los dos sitios: runner_id sale SIEMPRE de aqui, nunca del cliente."""
     if not token:
         raise HTTPException(401, "No autenticado")
     try:
@@ -95,3 +98,11 @@ async def get_current_runner(
     if runner is None or not runner.activo:
         raise HTTPException(401, "Sesion invalida")
     return runner
+
+
+async def get_current_runner(
+    request: Request,
+    repos: Repos = Depends(get_repos),
+    settings: Settings = Depends(get_settings),
+) -> Runner:
+    return await runner_desde_token(request.cookies.get(COOKIE_NAME), repos, settings)
