@@ -39,11 +39,15 @@ formSolicitar.addEventListener("submit", async (evento) => {
   boton.disabled = true;
 
   try {
-    await fetch("/api/auth/solicitar", {
+    const resp = await fetch("/api/auth/solicitar", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
     });
+    if (!resp.ok) {
+      mostrarMensajeLogin("No pudimos enviar el correo. Intenta de nuevo en unos segundos.");
+      return;
+    }
     mostrarMensajeLogin("Revisa tu bandeja de entrada — te mandamos un enlace para entrar.");
     formSolicitar.reset();
   } catch {
@@ -88,7 +92,13 @@ async function enviarMensaje({ texto, audioBlob }) {
     burbujaEspera.textContent = data.texto;
     if (data.audio_base64) {
       reproductor.src = `data:audio/mpeg;base64,${data.audio_base64}`;
-      reproductor.play();
+      reproductor.play().catch(() => {
+        // Algunos navegadores bloquean el autoplay si pasa mucho tiempo desde el
+        // clic original. Mostramos los controles nativos para que el usuario le
+        // de play el mismo, en vez de fallar en silencio.
+        reproductor.hidden = false;
+        reproductor.controls = true;
+      });
     }
   } catch {
     burbujaEspera.textContent = "No pudimos conectar con Koda. Revisa tu conexión.";
