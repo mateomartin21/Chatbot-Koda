@@ -16,6 +16,7 @@ from app.container import Container, build_container
 from app.domain.models import Runner
 from app.domain.ports.email_port import EmailPort
 from app.domain.ports.repositories import RunnerRepo, TokenAccesoRepo
+from app.domain.ports.stt_port import STTPort
 from app.infrastructure.persistence.repos import SqlRunnerRepo, SqlTokenAccesoRepo
 
 COOKIE_NAME = "koda_session"
@@ -33,6 +34,10 @@ def get_settings(container: Container = Depends(get_container)) -> Settings:
 
 def get_email_port(container: Container = Depends(get_container)) -> EmailPort:
     return container.email
+
+
+def get_stt_port(container: Container = Depends(get_container)) -> STTPort:
+    return container.stt
 
 
 async def get_session(container: Container = Depends(get_container)) -> AsyncIterator[AsyncSession]:

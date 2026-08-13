@@ -39,3 +39,4 @@ Las negativas son obligatorias. Un ADR sin consecuencias negativas es publicidad
 | [006](ADR-006-dominio-determinista.md) | Reglas de entrenamiento deterministas, no delegadas al LLM | Aceptado |
 | [007](ADR-007-auth-enlace-magico.md) | Autenticación por enlace mágico, sin contraseñas | Aceptado |
 | [008](ADR-008-entradas-multimodales.md) | Entradas multimodales con vídeo como alcance opcional | Aceptado |
+| [009](ADR-009-groq-stt-temporal.md) | Groq Whisper como STT temporal mientras Transcribe se desbloquea | Aceptado |
