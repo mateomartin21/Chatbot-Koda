@@ -74,16 +74,35 @@ function agregarBurbuja(texto, rol) {
   return burbuja;
 }
 
+// El pipeline es en cascada (STT -> LLM -> TTS), asi que tarda unos segundos de
+// verdad — ver docs/adr/ADR-001-pipeline-cascada.md. No hay streaming real (esta
+// descartado a proposito en el plan), pero mostrar la etapa aproximada evita que
+// se sienta como que la app se congelo.
+function iniciarEtapasDeEspera(burbuja, huboAudio) {
+  const etapas = huboAudio
+    ? ["Escuchando tu audio…", "Pensando…", "Preparando la respuesta…"]
+    : ["Pensando…", "Preparando la respuesta…"];
+  let indice = 0;
+  burbuja.textContent = etapas[0];
+  const intervalo = setInterval(() => {
+    indice += 1;
+    if (indice < etapas.length) burbuja.textContent = etapas[indice];
+  }, 1500);
+  return () => clearInterval(intervalo);
+}
+
 async function enviarMensaje({ texto, audioBlob }) {
   const formData = new FormData();
   if (texto) formData.append("texto", texto);
   if (audioBlob) formData.append("audio", audioBlob, "mensaje.webm");
 
   agregarBurbuja(texto || "🎙️ (mensaje de voz)", "usuario");
-  const burbujaEspera = agregarBurbuja("…", "coach");
+  const burbujaEspera = agregarBurbuja("", "coach");
+  const detenerEtapas = iniciarEtapasDeEspera(burbujaEspera, Boolean(audioBlob));
 
   try {
     const resp = await fetch("/api/mensajes", { method: "POST", body: formData });
+    detenerEtapas();
     if (!resp.ok) {
       burbujaEspera.textContent = "Algo falló al mandar tu mensaje. Intenta de nuevo.";
       return;
@@ -101,6 +120,7 @@ async function enviarMensaje({ texto, audioBlob }) {
       });
     }
   } catch {
+    detenerEtapas();
     burbujaEspera.textContent = "No pudimos conectar con Koda. Revisa tu conexión.";
   }
 }
