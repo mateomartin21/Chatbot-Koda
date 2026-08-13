@@ -68,7 +68,7 @@ async def test_si_tts_falla_la_respuesta_sigue_solo_en_texto():
     assert respuesta.audio is None
 
 
-async def test_si_el_llm_falla_dos_veces_responde_con_mensaje_amable():
+async def test_si_el_llm_falla_responde_con_mensaje_amable():
     stt, llm, tts = FakeSTT(), FakeLLM(), FakeTTS()
     llm.falla = True
 

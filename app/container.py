@@ -13,6 +13,8 @@ from app.domain.ports.stt_port import STTPort
 from app.domain.ports.tts_port import TTSPort
 from app.infrastructure.email.ses import SESEmail
 from app.infrastructure.llm.bedrock_converse import BedrockConverse
+from app.infrastructure.llm.groq_llm import GroqLLM
+from app.infrastructure.llm.model_gateway import ModelGatewayLLM
 from app.infrastructure.persistence.db import crear_session_factory
 from app.infrastructure.stt.groq_whisper import GroqWhisperSTT
 from app.infrastructure.stt.transcribe_aws import TranscribeAWS
@@ -43,7 +45,16 @@ def build_container(settings: Settings | None = None) -> Container:
     # Ver docs/adr/ADR-009-groq-stt-temporal.md. Volver a "aws" es cambiar esta linea.
     stt: STTPort = TranscribeAWS(settings) if settings.provider_stt == "aws" else GroqWhisperSTT(settings)
 
-    llm: LLMPort = BedrockConverse(settings)
+    # Gateway de modelos: cadena ordenada de proveedores, no un reintento de la misma
+    # llamada. Los tiers barato/Groq son opcionales — si no estan configurados, el
+    # gateway sigue funcionando solo con el modelo principal de Bedrock.
+    tiers_llm: list[LLMPort] = [BedrockConverse(settings, settings.bedrock_model_id)]
+    if settings.bedrock_model_id_barato:
+        tiers_llm.append(BedrockConverse(settings, settings.bedrock_model_id_barato))
+    if settings.groq_api_key:
+        tiers_llm.append(GroqLLM(settings))
+    llm: LLMPort = ModelGatewayLLM(tiers_llm)
+
     tts: TTSPort = PollyTTS(settings)
 
     coach_system_prompt = (_PROMPTS_DIR / "coach_system.md").read_text(encoding="utf-8")

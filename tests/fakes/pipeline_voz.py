@@ -1,5 +1,7 @@
 """Dobles del pipeline de voz. Sin red — ver docs/contexto/08-CONVENCIONES.md."""
 
+import asyncio
+
 from app.domain.ports.llm_port import LLMPort
 from app.domain.ports.stt_port import STTPort
 from app.domain.ports.tts_port import TTSPort
@@ -20,10 +22,13 @@ class FakeLLM(LLMPort):
     def __init__(self, respuesta: str = "hola, soy koda") -> None:
         self.respuesta = respuesta
         self.falla = False
+        self.retraso_segundos = 0.0  # para probar timeouts del gateway sin red real
         self.mensajes_recibidos: list[str] = []
 
     async def conversar(self, mensaje_usuario: str, *, system_prompt: str) -> str:
         self.mensajes_recibidos.append(mensaje_usuario)
+        if self.retraso_segundos:
+            await asyncio.sleep(self.retraso_segundos)
         if self.falla:
             raise RuntimeError("LLM no disponible")
         return self.respuesta

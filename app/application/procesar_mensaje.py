@@ -7,7 +7,6 @@ infraestructura (boto3, httpx...) en una respuesta conversacional, sin acoplar l
 capa de aplicacion a tipos de excepcion concretos de un SDK.
 """
 
-import asyncio
 from dataclasses import dataclass
 
 from app.domain.ports.llm_port import LLMPort
@@ -46,7 +45,12 @@ async def procesar_mensaje(
         if not texto_usuario:
             return RespuestaCoach(texto=_MENSAJE_NO_ESCUCHE, audio=None)
 
-    texto_respuesta = await _conversar_con_reintento(llm, texto_usuario, system_prompt)
+    try:
+        texto_respuesta = await llm.conversar(texto_usuario, system_prompt=system_prompt)
+    except Exception:  # noqa: BLE001 — el LLM (ahora un gateway con fallback entre
+        # proveedores, ver model_gateway.py) ya agoto sus propios tiers. Si llega aqui,
+        # no queda mas que degradar a un mensaje amable.
+        texto_respuesta = _MENSAJE_LLM_CAIDO
 
     try:
         audio_respuesta = await tts.sintetizar(texto_respuesta)
@@ -54,14 +58,3 @@ async def procesar_mensaje(
         audio_respuesta = None
 
     return RespuestaCoach(texto=texto_respuesta, audio=audio_respuesta)
-
-
-async def _conversar_con_reintento(llm: LLMPort, texto_usuario: str, system_prompt: str) -> str:
-    try:
-        return await llm.conversar(texto_usuario, system_prompt=system_prompt)
-    except Exception:  # noqa: BLE001
-        await asyncio.sleep(1)
-    try:
-        return await llm.conversar(texto_usuario, system_prompt=system_prompt)
-    except Exception:  # noqa: BLE001
-        return _MENSAJE_LLM_CAIDO

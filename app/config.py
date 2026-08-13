@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     # Plan B (solo si PROVIDER_* = fallback)
     groq_api_key: str | None = None
     groq_stt_model: str = "whisper-large-v3-turbo"
+    # Verificar contra console.groq.com/docs/models antes de confiar en este default —
+    # Groq deprecia modelos con relativa frecuencia.
+    groq_llm_model: str = "openai/gpt-oss-120b"
     gemini_api_key: str | None = None
     resend_api_key: str | None = None
 
