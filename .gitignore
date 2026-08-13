@@ -1,0 +1,39 @@
+# Secretos — NUNCA subir
+.env
+.env.*
+!.env.example
+*.pem
+credentials.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+.coverage
+htmlcov/
+
+# Base de datos local
+*.db
+*.sqlite3
+
+# Archivos subidos y generados
+uploads/
+media/
+*.mp3
+*.wav
+*.oga
+!tests/**/fixtures/**
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Editores
+.vscode/
+.idea/
+*.swp
