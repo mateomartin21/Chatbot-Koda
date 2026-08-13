@@ -2,15 +2,14 @@
 
 import asyncio
 
-import boto3
-
 from app.config import Settings
 from app.domain.ports.email_port import EmailPort
+from app.infrastructure.aws_session import cliente_aws
 
 
 class SESEmail(EmailPort):
     def __init__(self, settings: Settings) -> None:
-        self._client = boto3.client("sesv2", region_name=settings.aws_region)
+        self._client = cliente_aws("sesv2", settings)
         self._from_email = settings.ses_from_email
         self._from_name = settings.ses_from_name
 

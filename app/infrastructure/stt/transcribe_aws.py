@@ -10,18 +10,17 @@ import json
 import time
 import uuid
 
-import boto3
-
 from app.config import Settings
 from app.domain.ports.stt_port import STTPort
+from app.infrastructure.aws_session import cliente_aws
 
 
 class TranscribeAWS(STTPort):
     def __init__(self, settings: Settings) -> None:
         if not settings.s3_bucket:
             raise ValueError("S3_BUCKET no esta configurado")
-        self._s3 = boto3.client("s3", region_name=settings.aws_region)
-        self._transcribe = boto3.client("transcribe", region_name=settings.aws_region)
+        self._s3 = cliente_aws("s3", settings)
+        self._transcribe = cliente_aws("transcribe", settings)
         self._bucket = settings.s3_bucket
         self._idioma = settings.transcribe_language
 
