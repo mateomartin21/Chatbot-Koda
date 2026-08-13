@@ -7,8 +7,17 @@ from pydantic import BaseModel, EmailStr
 from app.application.auth.canjear_enlace import canjear_enlace
 from app.application.auth.solicitar_enlace import solicitar_enlace
 from app.config import Settings
+from app.domain.models import Runner
 from app.domain.ports.email_port import EmailPort
-from app.interfaces.api.deps import COOKIE_NAME, Repos, crear_jwt, get_email_port, get_repos, get_settings
+from app.interfaces.api.deps import (
+    COOKIE_NAME,
+    Repos,
+    crear_jwt,
+    get_current_runner,
+    get_email_port,
+    get_repos,
+    get_settings,
+)
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -59,3 +68,10 @@ async def canjear(
         path="/",
     )
     return response
+
+
+@router.get("/sesion")
+async def sesion(runner: Runner = Depends(get_current_runner)) -> dict:
+    # La cookie es httpOnly a proposito (mitiga XSS) — el frontend no puede leerla,
+    # asi que pregunta aqui si hay sesion valida en vez de inspeccionar document.cookie.
+    return {"email": runner.email}

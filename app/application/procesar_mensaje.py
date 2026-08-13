@@ -1,0 +1,67 @@
+"""Caso de uso central: une STT, LLM y TTS. Voz y texto desde el principio.
+
+El manejo de errores sigue la tabla de degradacion de docs/contexto/01-ARQUITECTURA.md:
+que falte STT o TTS es molesto, que la app se caiga es descalificante. Por eso se
+capturan excepciones genericas aqui — es la frontera que traduce fallos de
+infraestructura (boto3, httpx...) en una respuesta conversacional, sin acoplar la
+capa de aplicacion a tipos de excepcion concretos de un SDK.
+"""
+
+import asyncio
+from dataclasses import dataclass
+
+from app.domain.ports.llm_port import LLMPort
+from app.domain.ports.stt_port import STTPort
+from app.domain.ports.tts_port import TTSPort
+
+_MENSAJE_NO_ESCUCHE = "No te escuché bien, ¿lo repites?"
+_MENSAJE_LLM_CAIDO = "Se me complicó pensar la respuesta justo ahora. ¿Me lo repites en un momento?"
+
+
+@dataclass
+class RespuestaCoach:
+    texto: str
+    audio: bytes | None  # None si Polly fallo — la conversacion sigue solo en texto
+
+
+async def procesar_mensaje(
+    *,
+    texto: str | None,
+    audio: bytes | None,
+    audio_mime: str | None,
+    stt: STTPort,
+    llm: LLMPort,
+    tts: TTSPort,
+    system_prompt: str,
+) -> RespuestaCoach:
+    if texto and texto.strip():
+        texto_usuario = texto.strip()
+    else:
+        if audio is None or audio_mime is None:
+            return RespuestaCoach(texto=_MENSAJE_NO_ESCUCHE, audio=None)
+        try:
+            texto_usuario = (await stt.transcribir(audio, audio_mime)).strip()
+        except Exception:  # noqa: BLE001 — degradar, no morir (ver docstring)
+            return RespuestaCoach(texto=_MENSAJE_NO_ESCUCHE, audio=None)
+        if not texto_usuario:
+            return RespuestaCoach(texto=_MENSAJE_NO_ESCUCHE, audio=None)
+
+    texto_respuesta = await _conversar_con_reintento(llm, texto_usuario, system_prompt)
+
+    try:
+        audio_respuesta = await tts.sintetizar(texto_respuesta)
+    except Exception:  # noqa: BLE001
+        audio_respuesta = None
+
+    return RespuestaCoach(texto=texto_respuesta, audio=audio_respuesta)
+
+
+async def _conversar_con_reintento(llm: LLMPort, texto_usuario: str, system_prompt: str) -> str:
+    try:
+        return await llm.conversar(texto_usuario, system_prompt=system_prompt)
+    except Exception:  # noqa: BLE001
+        await asyncio.sleep(1)
+    try:
+        return await llm.conversar(texto_usuario, system_prompt=system_prompt)
+    except Exception:  # noqa: BLE001
+        return _MENSAJE_LLM_CAIDO

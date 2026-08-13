@@ -88,3 +88,75 @@ button:disabled {
   color: var(--color-texto-tenue);
   font-size: 0.9rem;
 }
+
+/* --- Chat --- */
+
+.pantalla-chat {
+  width: 100%;
+  max-width: 480px;
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: var(--espacio-sm) 0;
+}
+
+.cabecera-chat {
+  text-align: center;
+  font-size: 1.25rem;
+  font-weight: 600;
+  padding-bottom: var(--espacio-sm);
+  border-bottom: 1px solid var(--color-borde);
+}
+
+.burbujas {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--espacio-sm);
+  padding: var(--espacio-md) var(--espacio-sm);
+}
+
+.burbuja {
+  max-width: 80%;
+  padding: var(--espacio-sm) var(--espacio-md);
+  border-radius: var(--radio);
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+
+.burbuja-usuario {
+  align-self: flex-end;
+  background: var(--color-acento);
+  color: #111;
+}
+
+.burbuja-coach {
+  align-self: flex-start;
+  background: #171a20;
+  border: 1px solid var(--color-borde);
+}
+
+.form-mensaje {
+  flex-direction: row;
+  align-items: center;
+  margin-top: 0;
+  padding: var(--espacio-sm);
+  gap: var(--espacio-sm);
+}
+
+.form-mensaje input {
+  flex: 1;
+}
+
+.form-mensaje button {
+  min-width: 44px;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+#boton-mic.grabando {
+  background: #e0293e;
+  color: #fff;
+}

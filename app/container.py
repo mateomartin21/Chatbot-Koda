@@ -2,16 +2,23 @@
 para cada puerto — ver docs/contexto/01-ARQUITECTURA.md."""
 
 from dataclasses import dataclass
+from pathlib import Path
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.config import Settings, get_settings
 from app.domain.ports.email_port import EmailPort
+from app.domain.ports.llm_port import LLMPort
 from app.domain.ports.stt_port import STTPort
+from app.domain.ports.tts_port import TTSPort
 from app.infrastructure.email.ses import SESEmail
+from app.infrastructure.llm.bedrock_converse import BedrockConverse
 from app.infrastructure.persistence.db import crear_session_factory
 from app.infrastructure.stt.groq_whisper import GroqWhisperSTT
 from app.infrastructure.stt.transcribe_aws import TranscribeAWS
+from app.infrastructure.tts.polly import PollyTTS
+
+_PROMPTS_DIR = Path(__file__).parent / "prompts"
 
 
 @dataclass
@@ -20,6 +27,9 @@ class Container:
     session_factory: async_sessionmaker[AsyncSession]
     email: EmailPort
     stt: STTPort
+    llm: LLMPort
+    tts: TTSPort
+    coach_system_prompt: str
 
 
 def build_container(settings: Settings | None = None) -> Container:
@@ -33,9 +43,17 @@ def build_container(settings: Settings | None = None) -> Container:
     # Ver docs/adr/ADR-009-groq-stt-temporal.md. Volver a "aws" es cambiar esta linea.
     stt: STTPort = TranscribeAWS(settings) if settings.provider_stt == "aws" else GroqWhisperSTT(settings)
 
+    llm: LLMPort = BedrockConverse(settings)
+    tts: TTSPort = PollyTTS(settings)
+
+    coach_system_prompt = (_PROMPTS_DIR / "coach_system.md").read_text(encoding="utf-8")
+
     return Container(
         settings=settings,
         session_factory=crear_session_factory(settings),
         email=email,
         stt=stt,
+        llm=llm,
+        tts=tts,
+        coach_system_prompt=coach_system_prompt,
     )

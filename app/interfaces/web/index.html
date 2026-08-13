@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
-  <main class="pantalla-login">
+  <main id="pantalla-login" class="pantalla-login" hidden>
     <h1>🐺 Koda</h1>
     <p class="subtitulo">Tu entrenador de running por voz</p>
 
@@ -17,7 +17,28 @@
       <button type="submit">Entrar</button>
     </form>
 
-    <p id="mensaje" class="mensaje" role="status" hidden></p>
+    <p id="mensaje-login" class="mensaje" role="status" hidden></p>
+  </main>
+
+  <main id="pantalla-chat" class="pantalla-chat" hidden>
+    <header class="cabecera-chat">
+      <span>🐺 Koda</span>
+    </header>
+
+    <div id="burbujas" class="burbujas" aria-live="polite"></div>
+
+    <form id="form-mensaje" class="form-mensaje">
+      <input
+        type="text"
+        id="texto"
+        placeholder="Escribe o mándame un audio…"
+        autocomplete="off"
+      />
+      <button type="button" id="boton-mic" aria-label="Grabar mensaje de voz">🎙️</button>
+      <button type="submit" aria-label="Enviar">➤</button>
+    </form>
+
+    <audio id="reproductor" hidden></audio>
   </main>
 
   <script src="/app.js"></script>
