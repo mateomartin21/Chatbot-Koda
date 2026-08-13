@@ -1,6 +1,6 @@
 # ADR-001 · Pipeline en cascada en lugar de speech-to-speech en tiempo real
 
-**Estado:** Aceptado
+**Estado:** Superseded by [ADR-011](ADR-011-nova-sonic-y-gateway-de-modelos.md)
 **Fecha:** 2026-08-13
 
 ## Contexto

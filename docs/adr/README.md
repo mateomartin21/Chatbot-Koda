@@ -31,7 +31,7 @@ Las negativas son obligatorias. Un ADR sin consecuencias negativas es publicidad
 
 | ADR | Decisión | Estado |
 |---|---|---|
-| [001](ADR-001-pipeline-cascada.md) | Pipeline en cascada en lugar de speech-to-speech en tiempo real | Aceptado |
+| [001](ADR-001-pipeline-cascada.md) | Pipeline en cascada en lugar de speech-to-speech en tiempo real | Superseded by [011](ADR-011-nova-sonic-y-gateway-de-modelos.md) |
 | [002](ADR-002-python-fastapi.md) | Python + FastAPI, frontend sin framework, n8n descartado | Aceptado |
 | [003](ADR-003-arquitectura-hexagonal.md) | Arquitectura hexagonal para aislar proveedores de IA | Aceptado |
 | [004](ADR-004-aws-servicios-gestionados.md) | Servicios gestionados de AWS para IA y correo | Aceptado |
@@ -41,3 +41,4 @@ Las negativas son obligatorias. Un ADR sin consecuencias negativas es publicidad
 | [008](ADR-008-entradas-multimodales.md) | Entradas multimodales con vídeo como alcance opcional | Aceptado |
 | [009](ADR-009-groq-stt-temporal.md) | Groq Whisper como STT temporal mientras Transcribe se desbloquea | Aceptado |
 | [010](ADR-010-sin-dominio-propio-para-ses.md) | Sin dominio propio para SES — se acepta el riesgo de spam | Aceptado |
+| [011](ADR-011-nova-sonic-y-gateway-de-modelos.md) | Voz en tiempo real con Nova Sonic y gateway de modelos con fallback | Aceptado |
