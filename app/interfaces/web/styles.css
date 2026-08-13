@@ -1,0 +1,90 @@
+:root {
+  --color-fondo: #0f1115;
+  --color-texto: #f2f2f2;
+  --color-texto-tenue: #a3a8b3;
+  --color-acento: #ff6a3d;
+  --color-borde: #2a2d35;
+  --espacio-sm: 0.5rem;
+  --espacio-md: 1rem;
+  --espacio-lg: 2rem;
+  --radio: 12px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-fondo);
+  color: var(--color-texto);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  padding: var(--espacio-md);
+}
+
+.pantalla-login {
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--espacio-md);
+  text-align: center;
+}
+
+h1 {
+  margin: 0;
+  font-size: 2rem;
+}
+
+.subtitulo {
+  margin: 0;
+  color: var(--color-texto-tenue);
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espacio-sm);
+  margin-top: var(--espacio-md);
+}
+
+label {
+  text-align: left;
+  font-size: 0.9rem;
+  color: var(--color-texto-tenue);
+}
+
+input {
+  min-height: 44px;
+  padding: 0 var(--espacio-md);
+  border-radius: var(--radio);
+  border: 1px solid var(--color-borde);
+  background: #171a20;
+  color: var(--color-texto);
+  font-size: 1rem;
+}
+
+button {
+  min-height: 44px;
+  border: none;
+  border-radius: var(--radio);
+  background: var(--color-acento);
+  color: #111;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.mensaje {
+  color: var(--color-texto-tenue);
+  font-size: 0.9rem;
+}

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Koda — entrenador de running</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <main class="pantalla-login">
+    <h1>🐺 Koda</h1>
+    <p class="subtitulo">Tu entrenador de running por voz</p>
+
+    <form id="form-solicitar">
+      <label for="email">Correo electrónico</label>
+      <input type="email" id="email" name="email" required autocomplete="email" placeholder="tu@correo.com" />
+      <button type="submit">Entrar</button>
+    </form>
+
+    <p id="mensaje" class="mensaje" role="status" hidden></p>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

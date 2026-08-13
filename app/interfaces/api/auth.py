@@ -1,0 +1,61 @@
+"""POST /api/auth/solicitar · GET /api/auth/canjear — ver docs/contexto/03-MULTIUSUARIO-Y-SEGURIDAD.md §3."""
+
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi.responses import RedirectResponse
+from pydantic import BaseModel, EmailStr
+
+from app.application.auth.canjear_enlace import canjear_enlace
+from app.application.auth.solicitar_enlace import solicitar_enlace
+from app.config import Settings
+from app.domain.ports.email_port import EmailPort
+from app.interfaces.api.deps import COOKIE_NAME, Repos, crear_jwt, get_email_port, get_repos, get_settings
+
+router = APIRouter(prefix="/api/auth", tags=["auth"])
+
+
+class SolicitarEnlaceRequest(BaseModel):
+    email: EmailStr
+
+
+@router.post("/solicitar")
+async def solicitar(
+    payload: SolicitarEnlaceRequest,
+    request: Request,
+    repos: Repos = Depends(get_repos),
+    email_port: EmailPort = Depends(get_email_port),
+    settings: Settings = Depends(get_settings),
+) -> dict:
+    ip = request.client.host if request.client else None
+    await solicitar_enlace(
+        str(payload.email),
+        ip,
+        runners=repos.runners,
+        tokens=repos.tokens,
+        email_port=email_port,
+        settings=settings,
+    )
+    # Siempre 200: no se revela si el correo existe ni si se toco el rate limit.
+    return {"ok": True}
+
+
+@router.get("/canjear")
+async def canjear(
+    token: str,
+    repos: Repos = Depends(get_repos),
+    settings: Settings = Depends(get_settings),
+) -> Response:
+    runner = await canjear_enlace(token, tokens=repos.tokens, runners=repos.runners)
+    if runner is None:
+        raise HTTPException(401, "Enlace invalido o caducado")
+
+    response = RedirectResponse(url="/", status_code=307)
+    response.set_cookie(
+        key=COOKIE_NAME,
+        value=crear_jwt(runner.id, settings),
+        httponly=True,
+        secure=settings.app_env == "production",
+        samesite="lax",
+        max_age=60 * 60 * 24 * settings.jwt_expire_days,
+        path="/",
+    )
+    return response
