@@ -1,6 +1,5 @@
 """Implementaciones concretas de los puertos de repositorio, con SQLAlchemy async."""
 
-import unicodedata
 from collections.abc import Sequence
 from dataclasses import fields
 from datetime import UTC, date, datetime
@@ -9,7 +8,7 @@ from uuid import UUID, uuid4
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.models import DatosPerfil, Hecho, Mensaje, Runner, TokenAcceso
+from app.domain.models import DatosPerfil, Hecho, Mensaje, Runner, TokenAcceso, normalizar_hecho
 from app.domain.ports.repositories import (
     ConversacionRepo,
     MemoriaRepo,
@@ -405,19 +404,6 @@ class SqlConversacionRepo(ConversacionRepo):
             )
             for f in reversed(filas)
         ]
-
-
-def normalizar_hecho(texto: str) -> str:
-    """Para deduplicar sin embeddings (§4.2): minusculas, sin tildes y sin puntuacion.
-
-    'Prefiere correr por la manana.' y 'prefiere correr por la mañana' son el mismo
-    hecho, y guardarlo cinco veces es como se pudre una memoria.
-    """
-    sin_tildes = "".join(
-        c for c in unicodedata.normalize("NFD", texto.lower()) if unicodedata.category(c) != "Mn"
-    )
-    solo_letras = "".join(c if c.isalnum() or c.isspace() else " " for c in sin_tildes)
-    return " ".join(solo_letras.split())
 
 
 class SqlMemoriaRepo(MemoriaRepo):

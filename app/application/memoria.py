@@ -15,7 +15,7 @@ from collections.abc import Sequence
 
 from pydantic import BaseModel, Field, ValidationError
 
-from app.domain.models import Hecho, Mensaje
+from app.domain.models import Hecho, Mensaje, normalizar_hecho
 from app.domain.ports.llm_port import LLMPort
 from app.domain.ports.repositories import MemoriaRepo
 
@@ -71,6 +71,40 @@ def parsear_hechos(respuesta: str) -> list[Hecho]:
     return hechos
 
 
+# Cortesias puras: lo unico que de verdad no merece gastar una llamada. Antes esto era
+# un minimo de caracteres, y descartaba "la rodilla" — diez caracteres y justo el dato
+# que habia que recordar. La longitud no mide contenido.
+_SIN_CONTENIDO = frozenset(
+    {
+        "hola",
+        "holi",
+        "buenas",
+        "buenos dias",
+        "buenas tardes",
+        "buenas noches",
+        "gracias",
+        "muchas gracias",
+        "ok",
+        "okay",
+        "vale",
+        "va",
+        "si",
+        "no",
+        "claro",
+        "perfecto",
+        "adios",
+        "hasta luego",
+        "nos vemos",
+    }
+)
+
+
+def _merece_una_llamada(mensajes: Sequence[Mensaje]) -> bool:
+    """La extraccion cuesta dinero en cada turno; un saludo no trae nada que recordar."""
+    dicho = [normalizar_hecho(m.contenido) for m in mensajes if m.rol == "usuario"]
+    return any(texto and texto not in _SIN_CONTENIDO for texto in dicho)
+
+
 def _transcribir(mensajes: Sequence[Mensaje]) -> str:
     return "\n".join(f"{'Corredor' if m.rol == 'usuario' else 'Entrenador'}: {m.contenido}" for m in mensajes)
 
@@ -83,9 +117,8 @@ async def extraer_y_guardar(
     prompt_extraccion: str,
 ) -> int:
     """Devuelve cuantos hechos NUEVOS se guardaron. Nunca lanza: es trabajo de fondo."""
-    del_runner = [m for m in mensajes if m.rol == "usuario"]
-    if not del_runner or sum(len(m.contenido) for m in del_runner) < 15:
-        return 0  # un "hola" o un "sí" no traen nada que recordar
+    if not _merece_una_llamada(mensajes):
+        return 0
 
     try:
         respuesta = await llm.conversar(_transcribir(mensajes), system_prompt=prompt_extraccion)

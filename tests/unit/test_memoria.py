@@ -93,16 +93,28 @@ async def test_solo_se_le_pasa_la_conversacion_al_modelo(memoria):
     assert llm.prompts_recibidos[0] == PROMPT
 
 
-async def test_un_saludo_no_gasta_una_llamada_al_modelo(memoria):
-    """La extraccion cuesta dinero en cada turno. Un 'hola' no trae nada que recordar."""
+@pytest.mark.parametrize("cortesia", ["hola", "Gracias!", "ok", "  Buenos dias  ", "sí"])
+async def test_una_cortesia_no_gasta_una_llamada_al_modelo(memoria, cortesia: str):
+    """La extraccion cuesta dinero en cada turno. Un saludo no trae nada que recordar."""
     llm = FakeLLM(respuesta="[]")
 
     guardados = await extraer_y_guardar(
-        uuid4(), [Mensaje(rol="usuario", contenido="hola")], memoria, llm, PROMPT
+        uuid4(), [Mensaje(rol="usuario", contenido=cortesia)], memoria, llm, PROMPT
     )
 
     assert guardados == 0
     assert llm.mensajes_recibidos == []  # ni se llamo
+
+
+@pytest.mark.parametrize("mensaje", ["la rodilla", "vivo en CDMX", "me duele"])
+async def test_un_mensaje_corto_con_contenido_si_se_extrae(memoria, mensaje: str):
+    """Este filtro era un minimo de caracteres y descartaba "la rodilla": diez letras y
+    justo el dato que habia que recordar. La longitud no mide contenido."""
+    llm = FakeLLM(respuesta="[]")
+
+    await extraer_y_guardar(uuid4(), [Mensaje(rol="usuario", contenido=mensaje)], memoria, llm, PROMPT)
+
+    assert llm.mensajes_recibidos != []  # si se llamo
 
 
 async def test_si_el_modelo_falla_la_conversacion_no_se_entera(memoria):

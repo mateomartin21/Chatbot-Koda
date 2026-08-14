@@ -112,17 +112,18 @@ async def voz_realtime(
                     await sesion.enviar_texto(control["texto"])
 
     async def reenviar_al_navegador() -> None:
-        # Se acumula lo DEFINITIVO de cada lado para guardarlo al cerrar el turno. Los
-        # adelantos (SPECULATIVE) no se guardan: son lo que el modelo penso decir, no lo
-        # que dijo, y meter eso en la memoria es guardar algo que nunca ocurrio.
-        dicho_por_el_runner: list[str] = []
-        dicho_por_koda: list[str] = []
+        # Se acumulan por separado la transcripcion confirmada y el adelanto de cada
+        # lado. Guardar solo la confirmada perdia la mitad de los turnos: en voz,
+        # Nova Sonic a menudo no manda nunca la FINAL, y la memoria acababa con lo que
+        # dijo el runner y sin lo que le contesto Koda. Al cerrar el turno se guarda la
+        # version mas completa de cada lado — el mismo criterio que ya usa la interfaz.
+        definitivo: dict[str, list[str]] = {"usuario": [], "coach": []}
+        adelanto: dict[str, list[str]] = {"usuario": [], "coach": []}
 
         async for evento in sesion.eventos():
             if isinstance(evento, TranscripcionParcial):
-                if evento.definitiva:
-                    destino = dicho_por_el_runner if evento.rol == "usuario" else dicho_por_koda
-                    destino.append(evento.texto)
+                destino = definitivo if evento.definitiva else adelanto
+                destino.setdefault(evento.rol, []).append(evento.texto)
                 await websocket.send_json(
                     {
                         "tipo": "transcripcion",
@@ -135,24 +136,31 @@ async def voz_realtime(
                 await websocket.send_bytes(evento.datos)
             elif isinstance(evento, TurnoTerminado):
                 logger.info("Turno de Nova Sonic terminado (completionEnd)")
-                await _guardar_turno(dicho_por_el_runner, dicho_por_koda)
+                await _guardar_turno(definitivo, adelanto)
                 await websocket.send_json({"tipo": "turno_terminado"})
             elif isinstance(evento, ErrorSesion):
-                await _guardar_turno(dicho_por_el_runner, dicho_por_koda)
+                await _guardar_turno(definitivo, adelanto)
                 await websocket.close(code=_CODIGO_CIERRE_FALLBACK)
                 return
 
-    async def _guardar_turno(del_runner: list[str], de_koda: list[str]) -> None:
+    async def _guardar_turno(definitivo: dict[str, list[str]], adelanto: dict[str, list[str]]) -> None:
         mensajes = []
-        if texto := " ".join(del_runner).strip():
-            mensajes.append(Mensaje(rol="usuario", contenido=texto, modalidad="voz"))
-        if texto := " ".join(de_koda).strip():
-            mensajes.append(Mensaje(rol="coach", contenido=texto, modalidad="voz"))
+        for rol in ("usuario", "coach"):
+            # La confirmada manda SIEMPRE que exista, aunque sea mas corta: el adelanto
+            # es lo que el modelo penso decir y a veces no coincide con lo que dijo.
+            # Solo cuando no llega ninguna se guarda el adelanto — es eso o perder el
+            # turno entero, y un turno a medias vale mas que un hueco en la memoria.
+            confirmada = " ".join(definitivo.get(rol, [])).strip()
+            texto = confirmada or " ".join(adelanto.get(rol, [])).strip()
+            if texto:
+                mensajes.append(Mensaje(rol=rol, contenido=texto, modalidad="voz"))
+
         if mensajes:
             await repos.conversaciones.guardar(runner.id, mensajes)
             lanzar_extraccion_de_memoria(runner.id, mensajes, container)
-        del_runner.clear()
-        de_koda.clear()
+        for acumulado in (definitivo, adelanto):
+            for lista in acumulado.values():
+                lista.clear()
 
     tarea_entrada = asyncio.create_task(recibir_del_navegador())
     tarea_salida = asyncio.create_task(reenviar_al_navegador())

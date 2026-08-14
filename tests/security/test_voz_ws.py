@@ -182,3 +182,33 @@ def test_el_turno_de_voz_se_guarda_en_la_memoria():
         ]
     finally:
         app.dependency_overrides.clear()
+
+
+def test_si_koda_no_manda_transcripcion_confirmada_se_guarda_el_adelanto():
+    """Nova Sonic a menudo no manda nunca la FINAL en turnos de voz. Guardando solo la
+    confirmada, la memoria se quedaba con lo que dijo el runner y sin la respuesta —
+    una ventana de conversacion coja."""
+    voz_fake = FakeVozRealtimePort(
+        eventos_a_emitir=[
+            TranscripcionParcial(texto="que me toca hoy", rol="usuario", definitiva=True),
+            TranscripcionParcial(texto="hoy te toca descansar", rol="coach", definitiva=False),
+            TurnoTerminado(),
+        ]
+    )
+    cliente = _preparar(voz_fake, con_cookie=True)
+    try:
+        with cliente.websocket_connect("/ws/voz") as ws:
+            ws.send_json({"tipo": "mensaje_texto", "texto": "que me toca hoy"})
+            while ws.receive_json().get("tipo") != "turno_terminado":
+                pass
+
+        repos = app.dependency_overrides[deps.get_repos]()
+        runner = asyncio.run(repos.runners.obtener_por_email("voz@example.com"))
+        guardados = asyncio.run(repos.conversaciones.ultimos(runner.id))
+
+        assert [(m.rol, m.contenido) for m in guardados] == [
+            ("usuario", "que me toca hoy"),
+            ("coach", "hoy te toca descansar"),
+        ]
+    finally:
+        app.dependency_overrides.clear()

@@ -1,5 +1,6 @@
 """Entidades del dominio. Cero imports externos — ver tests/unit/test_arquitectura.py."""
 
+import unicodedata
 from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
@@ -48,6 +49,21 @@ class Mensaje:
     contenido: str
     modalidad: str = "texto"  # texto | voz | imagen
     creado_en: datetime | None = None
+
+
+def normalizar_hecho(texto: str) -> str:
+    """Cuando dos hechos son el mismo hecho: minusculas, sin tildes y sin puntuacion.
+
+    "Prefiere correr por la manana." y "prefiere correr por la mañana" son el mismo
+    recuerdo, y guardarlo cinco veces es como se pudre una memoria. Vive en el dominio
+    porque es una regla de negocio, no un detalle de como se guarda — la usan tanto el
+    repositorio al deduplicar como el caso de uso al decidir si una frase dice algo.
+    """
+    sin_tildes = "".join(
+        c for c in unicodedata.normalize("NFD", texto.lower()) if unicodedata.category(c) != "Mn"
+    )
+    solo_letras = "".join(c if c.isalnum() or c.isspace() else " " for c in sin_tildes)
+    return " ".join(solo_letras.split())
 
 
 @dataclass(frozen=True)

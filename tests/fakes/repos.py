@@ -5,7 +5,7 @@ from dataclasses import fields, replace
 from datetime import UTC, date, datetime
 from uuid import UUID, uuid4
 
-from app.domain.models import DatosPerfil, Hecho, Mensaje, Runner, TokenAcceso
+from app.domain.models import DatosPerfil, Hecho, Mensaje, Runner, TokenAcceso, normalizar_hecho
 from app.domain.ports.repositories import (
     ConversacionRepo,
     MemoriaRepo,
@@ -14,10 +14,6 @@ from app.domain.ports.repositories import (
     TokenAccesoRepo,
 )
 from app.domain.training.modelos import Objetivo, PlanActivo, PlanEntrenamiento, SesionProgramada
-
-# El fake comparte la normalizacion con el repo real: si deduplicaran distinto, los
-# tests probarian un comportamiento que en produccion no existe.
-from app.infrastructure.persistence.repos import normalizar_hecho
 
 
 class InMemoryRunnerRepo(RunnerRepo):
