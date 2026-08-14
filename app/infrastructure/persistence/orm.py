@@ -43,6 +43,35 @@ class TokenAccesoORM(Base):
     ip_solicitud: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
+class ConversacionORM(Base):
+    """Capa 2 de la memoria: la ventana corta. Ver docs/contexto/05-MEMORIA.md §2."""
+
+    __tablename__ = "conversaciones"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    runner_id: Mapped[UUID] = mapped_column(ForeignKey("runners.id"), nullable=False, index=True)
+    rol: Mapped[str] = mapped_column(String, nullable=False)  # "usuario" | "coach"
+    contenido: Mapped[str] = mapped_column(Text, nullable=False)
+    modalidad: Mapped[str] = mapped_column(String, nullable=False, default="texto")
+    creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class MemoriaHechoORM(Base):
+    """Capa 3: lo que trasciende la sesion. Los hechos no se borran, se marcan no
+    vigentes — se conserva la historia y se deja de inyectar lo que ya no es cierto
+    (docs/contexto/05-MEMORIA.md §4.1)."""
+
+    __tablename__ = "memoria_hechos"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    runner_id: Mapped[UUID] = mapped_column(ForeignKey("runners.id"), nullable=False, index=True)
+    categoria: Mapped[str] = mapped_column(String, nullable=False)
+    hecho: Mapped[str] = mapped_column(Text, nullable=False)
+    confianza: Mapped[float] = mapped_column(Float, nullable=False, default=1.0)
+    creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    vigente: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+
 class ObjetivoORM(Base):
     __tablename__ = "objetivos"
 

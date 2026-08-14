@@ -40,6 +40,31 @@ class DatosPerfil:
     marca_tiempo_seg: float | None = None
 
 
+@dataclass(frozen=True)
+class Mensaje:
+    """Un turno de conversacion. Capa 2 de la memoria (docs/contexto/05-MEMORIA.md §2)."""
+
+    rol: str  # "usuario" | "coach"
+    contenido: str
+    modalidad: str = "texto"  # texto | voz | imagen
+    creado_en: datetime | None = None
+
+
+@dataclass(frozen=True)
+class Hecho:
+    """Algo que trasciende la conversacion. Capa 3 (§2).
+
+    La confianza viene del modelo que lo extrajo: no todo lo que se dice de pasada
+    merece condicionar un plan.
+    """
+
+    categoria: str  # lesion | preferencia | contexto | logro | restriccion
+    hecho: str
+    confianza: float = 1.0
+    vigente: bool = True
+    creado_en: datetime | None = None
+
+
 @dataclass
 class TokenAcceso:
     """Token de un solo uso para el enlace magico. Se guarda el hash, nunca el token en claro."""

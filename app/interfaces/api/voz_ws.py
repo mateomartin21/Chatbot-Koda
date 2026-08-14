@@ -13,8 +13,10 @@ import logging
 
 from fastapi import APIRouter, Depends, WebSocket
 
-from app.application.coach import HERRAMIENTAS, ReposDelCoach, construir_system_prompt, ejecutor_para
+from app.application.coach import HERRAMIENTAS, ejecutor_para
+from app.application.contexto import ReposDelCoach, construir_contexto, construir_system_prompt
 from app.config import Settings
+from app.domain.models import Mensaje
 from app.domain.ports.voz_realtime_port import (
     ErrorSesion,
     FragmentoAudio,
@@ -25,7 +27,7 @@ from app.domain.ports.voz_realtime_port import (
 from app.interfaces.api.deps import (
     COOKIE_NAME,
     Repos,
-    get_coach_system_prompt,
+    get_coach_voz_prompt,
     get_repos,
     get_settings,
     get_voz_realtime_port,
@@ -45,7 +47,9 @@ async def voz_realtime(
     repos: Repos = Depends(get_repos),
     settings: Settings = Depends(get_settings),
     voz: VozRealtimePort = Depends(get_voz_realtime_port),
-    system_prompt: str = Depends(get_coach_system_prompt),
+    # Prompt propio, corto (ver container.build_container): con el de texto, Nova Sonic
+    # ignoraba instrucciones que tenia escritas literalmente delante.
+    system_prompt: str = Depends(get_coach_voz_prompt),
 ) -> None:
     try:
         runner = await runner_desde_token(websocket.cookies.get(COOKIE_NAME), repos, settings)
@@ -55,14 +59,26 @@ async def voz_realtime(
 
     await websocket.accept()
 
+    repos_coach = ReposDelCoach(
+        runners=repos.runners,
+        planes=repos.planes,
+        conversaciones=repos.conversaciones,
+        memoria=repos.memoria,
+    )
     try:
         # Mismas herramientas y mismo contexto que POST /api/mensajes: hablar y escribir
         # tienen que dar el mismo resultado, no dos Kodas distintos. El ejecutor queda
         # atado al runner de la cookie durante toda la sesion.
+        #
+        # El contexto se arma AQUI, al abrir: en Nova Sonic el system prompt se manda una
+        # sola vez por sesion y no hay forma de ampliarlo despues. Como el navegador abre
+        # una sesion nueva por cada mensaje, es tambien lo que hace que Koda recuerde lo
+        # que se dijo hace un momento — sin esto, cada mensaje empezaba de cero.
+        contexto = await construir_contexto(runner, repos_coach)
         sesion = await voz.abrir_sesion(
-            system_prompt=construir_system_prompt(system_prompt, runner),
+            system_prompt=construir_system_prompt(system_prompt, contexto),
             herramientas=HERRAMIENTAS,
-            ejecutar=ejecutor_para(runner, ReposDelCoach(runners=repos.runners, planes=repos.planes)),
+            ejecutar=ejecutor_para(runner, repos_coach),
         )
     except Exception:
         # Nova Sonic no disponible (ej. AccessDeniedException si el modelo no esta
@@ -92,8 +108,17 @@ async def voz_realtime(
                     await sesion.enviar_texto(control["texto"])
 
     async def reenviar_al_navegador() -> None:
+        # Se acumula lo DEFINITIVO de cada lado para guardarlo al cerrar el turno. Los
+        # adelantos (SPECULATIVE) no se guardan: son lo que el modelo penso decir, no lo
+        # que dijo, y meter eso en la memoria es guardar algo que nunca ocurrio.
+        dicho_por_el_runner: list[str] = []
+        dicho_por_koda: list[str] = []
+
         async for evento in sesion.eventos():
             if isinstance(evento, TranscripcionParcial):
+                if evento.definitiva:
+                    destino = dicho_por_el_runner if evento.rol == "usuario" else dicho_por_koda
+                    destino.append(evento.texto)
                 await websocket.send_json(
                     {
                         "tipo": "transcripcion",
@@ -106,10 +131,23 @@ async def voz_realtime(
                 await websocket.send_bytes(evento.datos)
             elif isinstance(evento, TurnoTerminado):
                 logger.info("Turno de Nova Sonic terminado (completionEnd)")
+                await _guardar_turno(dicho_por_el_runner, dicho_por_koda)
                 await websocket.send_json({"tipo": "turno_terminado"})
             elif isinstance(evento, ErrorSesion):
+                await _guardar_turno(dicho_por_el_runner, dicho_por_koda)
                 await websocket.close(code=_CODIGO_CIERRE_FALLBACK)
                 return
+
+    async def _guardar_turno(del_runner: list[str], de_koda: list[str]) -> None:
+        mensajes = []
+        if texto := " ".join(del_runner).strip():
+            mensajes.append(Mensaje(rol="usuario", contenido=texto, modalidad="voz"))
+        if texto := " ".join(de_koda).strip():
+            mensajes.append(Mensaje(rol="coach", contenido=texto, modalidad="voz"))
+        if mensajes:
+            await repos.conversaciones.guardar(runner.id, mensajes)
+        del_runner.clear()
+        de_koda.clear()
 
     tarea_entrada = asyncio.create_task(recibir_del_navegador())
     tarea_salida = asyncio.create_task(reenviar_al_navegador())

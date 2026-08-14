@@ -62,6 +62,10 @@
       <p class="mensaje">
         Cuanto más sepa de ti, mejor te ajusto los ritmos. También puedes contármelo hablando.
       </p>
+      <p id="intro-perfil" class="mensaje" hidden>
+        Antes de empezar, cuéntame de ti. Sin una marca reciente tus ritmos son solo una
+        estimación — y de ahí sale todo tu plan.
+      </p>
       <form id="form-perfil">
         <label for="perfil-nombre">Cómo te llamo</label>
         <input type="text" id="perfil-nombre" autocomplete="given-name" />
@@ -87,6 +91,9 @@
         <input type="text" id="perfil-marca-tiempo" placeholder="25:00" inputmode="numeric" />
 
         <button type="submit">Guardar</button>
+        <button type="button" id="saltar-perfil" class="boton-secundario" hidden>
+          Lo hago después
+        </button>
         <p id="mensaje-perfil" class="mensaje" role="status" hidden></p>
       </form>
     </div>

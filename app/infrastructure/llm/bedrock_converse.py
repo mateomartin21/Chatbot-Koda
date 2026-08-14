@@ -68,9 +68,12 @@ class BedrockConverse(LLMPort):
     ) -> dict[str, Any]:
         parametros: dict[str, Any] = {
             "modelId": self._model_id,
-            # coach_system.md es identico en cada request -> candidato perfecto para
-            # prompt caching de Bedrock (~10% del costo en cache hit). Si el prompt no
-            # llega al minimo de tokens del modelo, Bedrock simplemente no cachea.
+            # Prompt caching de Bedrock (~10% del costo en cache hit). El prompt ya no es
+            # identico en cada request: delante lleva la fecha y el perfil del runner
+            # (ver coach.construir_system_prompt). Eso reduce el alcance del cache pero no
+            # lo anula — el prefijo sigue siendo el mismo para todos los mensajes de una
+            # misma conversacion, que es de donde salen casi todos los aciertos. Si el
+            # prompt no llega al minimo de tokens del modelo, Bedrock simplemente no cachea.
             "system": [{"text": system_prompt}, {"cachePoint": {"type": "default"}}],
             "messages": mensajes,
         }

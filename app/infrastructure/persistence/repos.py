@@ -1,5 +1,7 @@
 """Implementaciones concretas de los puertos de repositorio, con SQLAlchemy async."""
 
+import unicodedata
+from collections.abc import Sequence
 from dataclasses import fields
 from datetime import UTC, date, datetime
 from uuid import UUID, uuid4
@@ -7,8 +9,14 @@ from uuid import UUID, uuid4
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.models import DatosPerfil, Runner, TokenAcceso
-from app.domain.ports.repositories import PlanRepo, RunnerRepo, TokenAccesoRepo
+from app.domain.models import DatosPerfil, Hecho, Mensaje, Runner, TokenAcceso
+from app.domain.ports.repositories import (
+    ConversacionRepo,
+    MemoriaRepo,
+    PlanRepo,
+    RunnerRepo,
+    TokenAccesoRepo,
+)
 from app.domain.training.modelos import (
     Distancia,
     EstadoObjetivo,
@@ -22,6 +30,8 @@ from app.domain.training.modelos import (
 )
 from app.domain.training.paces import Ritmo, ZonasRitmo
 from app.infrastructure.persistence.orm import (
+    ConversacionORM,
+    MemoriaHechoORM,
     ObjetivoORM,
     PlanORM,
     RunnerORM,
@@ -353,3 +363,118 @@ class SqlPlanRepo(PlanRepo):
             fecha=fila.fecha_programada,
             completada=fila.completada,
         )
+
+
+# --- Memoria (docs/contexto/05-MEMORIA.md) --------------------------------------
+
+
+class SqlConversacionRepo(ConversacionRepo):
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def guardar(self, runner_id: UUID, mensajes: Sequence[Mensaje]) -> None:
+        for mensaje in mensajes:
+            self._session.add(
+                ConversacionORM(
+                    id=uuid4(),
+                    runner_id=runner_id,
+                    rol=mensaje.rol,
+                    contenido=mensaje.contenido,
+                    modalidad=mensaje.modalidad,
+                    creado_en=mensaje.creado_en or datetime.now(UTC),
+                )
+            )
+        await self._session.commit()
+
+    async def ultimos(self, runner_id: UUID, limite: int = 10) -> list[Mensaje]:
+        # Se piden los mas RECIENTES (creado_en DESC, que es como esta el indice) y se
+        # devuelven al reves: el modelo necesita leerlos en el orden en que ocurrieron.
+        stmt = (
+            select(ConversacionORM)
+            .where(ConversacionORM.runner_id == runner_id)
+            .order_by(ConversacionORM.creado_en.desc(), ConversacionORM.id.desc())
+            .limit(limite)
+        )
+        filas = (await self._session.execute(stmt)).scalars().all()
+        return [
+            Mensaje(
+                rol=f.rol,
+                contenido=f.contenido,
+                modalidad=f.modalidad,
+                creado_en=f.creado_en,
+            )
+            for f in reversed(filas)
+        ]
+
+
+def normalizar_hecho(texto: str) -> str:
+    """Para deduplicar sin embeddings (§4.2): minusculas, sin tildes y sin puntuacion.
+
+    'Prefiere correr por la manana.' y 'prefiere correr por la mañana' son el mismo
+    hecho, y guardarlo cinco veces es como se pudre una memoria.
+    """
+    sin_tildes = "".join(
+        c for c in unicodedata.normalize("NFD", texto.lower()) if unicodedata.category(c) != "Mn"
+    )
+    solo_letras = "".join(c if c.isalnum() or c.isspace() else " " for c in sin_tildes)
+    return " ".join(solo_letras.split())
+
+
+class SqlMemoriaRepo(MemoriaRepo):
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def guardar(self, runner_id: UUID, hechos: Sequence[Hecho]) -> int:
+        existentes = (
+            (
+                await self._session.execute(
+                    select(MemoriaHechoORM).where(
+                        MemoriaHechoORM.runner_id == runner_id,
+                        MemoriaHechoORM.vigente.is_(True),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        conocidos = {(f.categoria, normalizar_hecho(f.hecho)) for f in existentes}
+
+        guardados = 0
+        for hecho in hechos:
+            clave = (hecho.categoria, normalizar_hecho(hecho.hecho))
+            if clave in conocidos:
+                continue
+            conocidos.add(clave)
+            self._session.add(
+                MemoriaHechoORM(
+                    id=uuid4(),
+                    runner_id=runner_id,
+                    categoria=hecho.categoria,
+                    hecho=hecho.hecho,
+                    confianza=hecho.confianza,
+                    vigente=hecho.vigente,
+                )
+            )
+            guardados += 1
+        if guardados:
+            await self._session.commit()
+        return guardados
+
+    async def vigentes(self, runner_id: UUID, limite: int = 25) -> list[Hecho]:
+        stmt = (
+            select(MemoriaHechoORM)
+            .where(MemoriaHechoORM.runner_id == runner_id, MemoriaHechoORM.vigente.is_(True))
+            .order_by(MemoriaHechoORM.creado_en.desc())
+            .limit(limite)
+        )
+        filas = (await self._session.execute(stmt)).scalars().all()
+        return [
+            Hecho(
+                categoria=f.categoria,
+                hecho=f.hecho,
+                confianza=f.confianza,
+                vigente=f.vigente,
+                creado_en=f.creado_en,
+            )
+            for f in filas
+        ]

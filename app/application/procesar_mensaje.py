@@ -22,6 +22,9 @@ _MENSAJE_LLM_CAIDO = "Se me complicó pensar la respuesta justo ahora. ¿Me lo r
 class RespuestaCoach:
     texto: str
     audio: bytes | None  # None si Polly fallo — la conversacion sigue solo en texto
+    # Lo que dijo el usuario. Si vino por voz es la transcripcion, que es lo unico que
+    # tiene sentido guardar en la memoria: nadie relee un WAV.
+    texto_usuario: str = ""
 
 
 async def procesar_mensaje(
@@ -65,4 +68,4 @@ async def procesar_mensaje(
     except Exception:  # noqa: BLE001
         audio_respuesta = None
 
-    return RespuestaCoach(texto=texto_respuesta, audio=audio_respuesta)
+    return RespuestaCoach(texto=texto_respuesta, audio=audio_respuesta, texto_usuario=texto_usuario)

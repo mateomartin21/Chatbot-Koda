@@ -12,7 +12,13 @@ from starlette.websockets import WebSocketDisconnect
 from app.domain.ports.voz_realtime_port import FragmentoAudio, TranscripcionParcial, TurnoTerminado
 from app.interfaces.api import deps
 from app.main import app
-from tests.fakes.repos import InMemoryPlanRepo, InMemoryRunnerRepo, InMemoryTokenAccesoRepo
+from tests.fakes.repos import (
+    InMemoryConversacionRepo,
+    InMemoryMemoriaRepo,
+    InMemoryPlanRepo,
+    InMemoryRunnerRepo,
+    InMemoryTokenAccesoRepo,
+)
 from tests.fakes.voz_realtime import FakeVozRealtimePort
 
 _CODIGO_CIERRE_NO_AUTENTICADO = 4401
@@ -21,7 +27,11 @@ _CODIGO_CIERRE_FALLBACK = 4500
 
 def _preparar(voz_fake: FakeVozRealtimePort, *, con_cookie: bool) -> TestClient:
     repos = deps.Repos(
-        runners=InMemoryRunnerRepo(), tokens=InMemoryTokenAccesoRepo(), planes=InMemoryPlanRepo()
+        runners=InMemoryRunnerRepo(),
+        tokens=InMemoryTokenAccesoRepo(),
+        planes=InMemoryPlanRepo(),
+        conversaciones=InMemoryConversacionRepo(),
+        memoria=InMemoryMemoriaRepo(),
     )
     app.dependency_overrides[deps.get_repos] = lambda: repos
     app.dependency_overrides[deps.get_voz_realtime_port] = lambda: voz_fake
@@ -140,5 +150,35 @@ def test_reenvia_el_adelanto_y_la_transcripcion_confirmada_marcados_distinto():
         assert adelanto["definitiva"] is False
         assert confirmada["definitiva"] is True
         assert confirmada["texto"] == "esto fue lo que dije"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_el_turno_de_voz_se_guarda_en_la_memoria():
+    """Sin esto, cada mensaje abre una sesion en blanco: el runner dice 'maraton' y en
+    el mensaje siguiente Koda le pregunta la distancia."""
+    voz_fake = FakeVozRealtimePort(
+        eventos_a_emitir=[
+            TranscripcionParcial(texto="quiero un maraton", rol="usuario", definitiva=True),
+            TranscripcionParcial(texto="pensando decir esto", rol="coach", definitiva=False),
+            TranscripcionParcial(texto="¿que fecha?", rol="coach", definitiva=True),
+            TurnoTerminado(),
+        ]
+    )
+    cliente = _preparar(voz_fake, con_cookie=True)
+    try:
+        with cliente.websocket_connect("/ws/voz") as ws:
+            ws.send_json({"tipo": "mensaje_texto", "texto": "quiero un maraton"})
+            while ws.receive_json().get("tipo") != "turno_terminado":
+                pass
+
+        repos = app.dependency_overrides[deps.get_repos]()
+        runner = asyncio.run(repos.runners.obtener_por_email("voz@example.com"))
+        guardados = asyncio.run(repos.conversaciones.ultimos(runner.id))
+
+        assert [(m.rol, m.contenido) for m in guardados] == [
+            ("usuario", "quiero un maraton"),
+            ("coach", "¿que fecha?"),  # el adelanto NO se guarda: nunca se dijo
+        ]
     finally:
         app.dependency_overrides.clear()

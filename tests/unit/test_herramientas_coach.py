@@ -9,10 +9,16 @@ from uuid import uuid4
 
 import pytest
 
-from app.application.coach import HERRAMIENTAS, ReposDelCoach, construir_system_prompt, ejecutor_para
+from app.application.coach import HERRAMIENTAS, ejecutor_para
+from app.application.contexto import ReposDelCoach
 from app.domain.models import Runner
 from app.domain.ports.llm_port import LlamadaHerramienta
-from tests.fakes.repos import InMemoryPlanRepo, InMemoryRunnerRepo
+from tests.fakes.repos import (
+    InMemoryConversacionRepo,
+    InMemoryMemoriaRepo,
+    InMemoryPlanRepo,
+    InMemoryRunnerRepo,
+)
 
 HOY = date(2026, 8, 13)
 
@@ -23,7 +29,12 @@ def _runner(**campos) -> Runner:
 
 @pytest.fixture
 def repos() -> ReposDelCoach:
-    return ReposDelCoach(runners=InMemoryRunnerRepo(), planes=InMemoryPlanRepo())
+    return ReposDelCoach(
+        runners=InMemoryRunnerRepo(),
+        planes=InMemoryPlanRepo(),
+        conversaciones=InMemoryConversacionRepo(),
+        memoria=InMemoryMemoriaRepo(),
+    )
 
 
 @pytest.fixture
@@ -42,8 +53,9 @@ def _llamar(_nombre: str, **argumentos) -> LlamadaHerramienta:
 async def test_crear_plan_guarda_el_plan_y_lo_describe(runner, repos):
     ejecutar = ejecutor_para(runner, repos, hoy=HOY)
 
+    carrera = HOY + timedelta(weeks=13)
     resultado = await ejecutar(
-        _llamar("crear_plan", distancia_km=10, fecha_carrera=str(HOY + timedelta(weeks=13)))
+        _llamar("crear_plan", distancia_km=10, dia=carrera.day, mes=carrera.month, anio=carrera.year)
     )
 
     assert "10K" in resultado
@@ -54,8 +66,9 @@ async def test_un_objetivo_imposible_vuelve_como_rechazo_con_alternativa(runner,
     """R6 llega al modelo como texto que le obliga a ofrecer algo, no como un error."""
     ejecutar = ejecutor_para(runner, repos, hoy=HOY)
 
+    carrera = HOY + timedelta(weeks=6)
     resultado = await ejecutar(
-        _llamar("crear_plan", distancia_km=42, fecha_carrera=str(HOY + timedelta(weeks=6)))
+        _llamar("crear_plan", distancia_km=42, dia=carrera.day, mes=carrera.month, anio=carrera.year)
     )
 
     assert "RECHAZADO" in resultado
@@ -63,10 +76,10 @@ async def test_un_objetivo_imposible_vuelve_como_rechazo_con_alternativa(runner,
     assert await repos.planes.obtener_activo(runner.id) is None
 
 
-async def test_una_fecha_mal_escrita_no_revienta_la_conversacion(runner, repos):
+async def test_sin_dia_ni_mes_no_revienta_la_conversacion(runner, repos):
     ejecutar = ejecutor_para(runner, repos, hoy=HOY)
-    resultado = await ejecutar(_llamar("crear_plan", distancia_km=10, fecha_carrera="en noviembre"))
-    assert "AAAA-MM-DD" in resultado
+    resultado = await ejecutar(_llamar("crear_plan", distancia_km=10))
+    assert "Falta el dia o el mes" in resultado
 
 
 async def test_lo_que_se_guarda_del_perfil_se_usa_en_el_plan_del_mismo_turno(repos):
@@ -79,7 +92,10 @@ async def test_lo_que_se_guarda_del_perfil_se_usa_en_el_plan_del_mismo_turno(rep
     await ejecutar(
         _llamar("guardar_datos_del_runner", nivel="avanzado", marca_distancia_km=10, marca_tiempo_seg=2400)
     )
-    await ejecutar(_llamar("crear_plan", distancia_km=21, fecha_carrera=str(HOY + timedelta(weeks=16))))
+    carrera = HOY + timedelta(weeks=16)
+    await ejecutar(
+        _llamar("crear_plan", distancia_km=21, dia=carrera.day, mes=carrera.month, anio=carrera.year)
+    )
 
     activo = await repos.planes.obtener_activo(runner.id)
     assert activo is not None
@@ -111,13 +127,44 @@ async def test_una_herramienta_inventada_no_rompe_nada(runner, repos):
     assert "No existe" in await ejecutar(_llamar("borrar_todo"))
 
 
-async def test_el_prompt_lleva_la_fecha_y_lo_que_se_sabe_del_runner(runner):
-    prompt = construir_system_prompt("eres koda", runner, hoy=HOY)
+async def test_sin_anio_la_carrera_es_la_proxima_vez_que_ocurra(runner, repos):
+    """Nadie dice el anio en voz alta, y pedirlo cuesta un turno entero de conversacion."""
+    ejecutar = ejecutor_para(runner, repos, hoy=HOY)  # 13 de agosto de 2026
 
-    assert "13 de agosto de 2026" in prompt
-    assert "intermedio" in prompt
+    await ejecutar(_llamar("crear_plan", distancia_km=10, dia=15, mes=11))
+
+    activo = await repos.planes.obtener_activo(runner.id)
+    assert activo is not None
+    assert activo.objetivo.fecha_carrera == date(2026, 11, 15)
 
 
-async def test_el_prompt_dice_cuando_no_se_sabe_nada_del_runner():
-    prompt = construir_system_prompt("eres koda", _runner(), hoy=HOY)
-    assert "Todavia no sabes nada" in prompt
+async def test_sin_anio_una_fecha_ya_pasada_salta_al_siguiente(runner, repos):
+    ejecutar = ejecutor_para(runner, repos, hoy=HOY)
+
+    await ejecutar(_llamar("crear_plan", distancia_km=10, dia=1, mes=3))
+
+    activo = await repos.planes.obtener_activo(runner.id)
+    assert activo is not None
+    assert activo.objetivo.fecha_carrera == date(2027, 3, 1)
+
+
+async def test_tambien_acepta_la_fecha_entera_si_el_modelo_improvisa(runner, repos):
+    """El esquema pide dia y mes, pero los modelos improvisan: mandar la fecha ISO
+    completa es la improvisacion mas probable y rechazarla costaria un turno de mas."""
+    ejecutar = ejecutor_para(runner, repos, hoy=HOY)
+
+    await ejecutar(_llamar("crear_plan", distancia_km=10, fecha_carrera="2026-11-15"))
+
+    activo = await repos.planes.obtener_activo(runner.id)
+    assert activo is not None
+    assert activo.objetivo.fecha_carrera == date(2026, 11, 15)
+
+
+async def test_el_anio_explicito_manda_sobre_la_deduccion(runner, repos):
+    ejecutar = ejecutor_para(runner, repos, hoy=HOY)
+
+    await ejecutar(_llamar("crear_plan", distancia_km=10, dia=15, mes=11, anio=2027))
+
+    activo = await repos.planes.obtener_activo(runner.id)
+    assert activo is not None
+    assert activo.objetivo.fecha_carrera == date(2027, 11, 15)

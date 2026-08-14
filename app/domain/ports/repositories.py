@@ -2,10 +2,11 @@
 en la firma — ver docs/contexto/03-MULTIUSUARIO-Y-SEGURIDAD.md §4.1."""
 
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from datetime import date, datetime
 from uuid import UUID
 
-from app.domain.models import DatosPerfil, Runner, TokenAcceso
+from app.domain.models import DatosPerfil, Hecho, Mensaje, Runner, TokenAcceso
 from app.domain.training.modelos import Objetivo, PlanActivo, PlanEntrenamiento, SesionProgramada
 
 
@@ -72,3 +73,35 @@ class PlanRepo(ABC):
 
     @abstractmethod
     async def proxima_sesion(self, runner_id: UUID, desde: date) -> SesionProgramada | None: ...
+
+
+class ConversacionRepo(ABC):
+    """Capa 2 de la memoria: la ventana corta de docs/contexto/05-MEMORIA.md §2."""
+
+    @abstractmethod
+    async def guardar(self, runner_id: UUID, mensajes: Sequence[Mensaje]) -> None: ...
+
+    @abstractmethod
+    async def ultimos(self, runner_id: UUID, limite: int = 10) -> list[Mensaje]:
+        """Los ultimos turnos en orden cronologico (el mas viejo primero).
+
+        El limite es fijo y no adaptativo a proposito: predecible y de coste constante
+        aunque el runner lleve un anio usando la app.
+        """
+        ...
+
+
+class MemoriaRepo(ABC):
+    """Capa 3: los hechos duraderos (§2)."""
+
+    @abstractmethod
+    async def guardar(self, runner_id: UUID, hechos: Sequence[Hecho]) -> int:
+        """Guarda los hechos nuevos y devuelve cuantos entraron de verdad.
+
+        Deduplica contra lo que ya hay: 'prefiere correr por la manana' no se guarda
+        cinco veces (§4.2). Una memoria que solo acumula se pudre.
+        """
+        ...
+
+    @abstractmethod
+    async def vigentes(self, runner_id: UUID, limite: int = 25) -> list[Hecho]: ...

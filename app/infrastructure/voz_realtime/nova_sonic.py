@@ -283,6 +283,13 @@ class NovaSonicSesion(SesionVozRealtime):
     async def _atender_herramienta(self, peticion: dict) -> None:
         """Ejecuta lo que el modelo pidio y le devuelve el resultado por el mismo stream.
 
+        SOLO se llama al recibir el contentEnd del bloque TOOL, nunca al recibir el
+        toolUse. Nova Sonic no acepta la respuesta mientras su propio bloque sigue
+        abierto: contesta con "Tool Response parsing error" y tira la sesion, con la
+        herramienta ya ejecutada y el runner sin respuesta. El mensaje de error apunta
+        al formato del contenido y despista — el formato estaba bien, lo que estaba mal
+        era el momento.
+
         El contenido llega como cadena JSON (mediaType application/json), no como objeto.
         """
         nombre = peticion.get("toolName", "")
@@ -328,7 +335,13 @@ class NovaSonicSesion(SesionVozRealtime):
                     "toolResult": {
                         "promptName": self._prompt_name,
                         "contentName": content_name,
-                        "content": resultado,
+                        # El contenido va como cadena JSON, no como la prosa que devuelve
+                        # el ejecutor: al declarar toolUseOutputConfiguration como
+                        # application/json, Nova Sonic intenta parsearlo. Mandar el texto
+                        # tal cual mata la sesion con "Tool Response parsing error"
+                        # justo despues de haber ejecutado la herramienta — es decir,
+                        # con el plan ya creado y el runner sin respuesta.
+                        "content": json.dumps({"resultado": resultado}, ensure_ascii=False),
                     }
                 }
             }
@@ -372,6 +385,8 @@ class NovaSonicSesion(SesionVozRealtime):
         # continuo, asi que llegan usageEvent todo el tiempo y un timeout de recepcion
         # nunca se disparia. Con un deadline explicito el turno cierra igual.
         deadline_cierre: float | None = None
+        # El toolUse llega antes que el contentEnd de su bloque; se guarda hasta entonces.
+        herramienta_pendiente: dict | None = None
         try:
             while self._activa:
                 timeout = _TIMEOUT_INACTIVIDAD_SEGUNDOS
@@ -431,14 +446,17 @@ class NovaSonicSesion(SesionVozRealtime):
                     logger.debug("audioOutput %d bytes", len(audio))
                     yield FragmentoAudio(datos=audio)
                 elif "toolUse" in evento:
-                    # El turno NO ha terminado: el modelo esta esperando el resultado
-                    # para poder contestar. Si quedara un plazo de cierre corriendo, la
-                    # sesion se cortaria justo mientras se genera el plan.
+                    # Se anota y se responde al cerrar el bloque, no aqui. El turno NO ha
+                    # terminado: el modelo espera el resultado para poder contestar, asi
+                    # que se cancela cualquier plazo de cierre en marcha.
                     deadline_cierre = None
-                    await self._atender_herramienta(evento["toolUse"])
+                    herramienta_pendiente = evento["toolUse"]
                 elif "contentEnd" in evento:
                     fin = evento["contentEnd"]
                     logger.info("contentEnd type=%s stopReason=%s", fin.get("type"), fin.get("stopReason"))
+                    if fin.get("type") == "TOOL" and herramienta_pendiente is not None:
+                        peticion, herramienta_pendiente = herramienta_pendiente, None
+                        await self._atender_herramienta(peticion)
                     if fin.get("type") == "AUDIO" and fin.get("stopReason") == "END_TURN":
                         # Senal real de que el audio de la respuesta ya termino -- desde
                         # aqui solo esperamos un poco por si llega texto final rezagado.

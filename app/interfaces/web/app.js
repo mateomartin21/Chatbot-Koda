@@ -16,7 +16,15 @@ async function init() {
   // asi que pregunta al backend si hay sesion valida.
   try {
     const resp = await fetch("/api/auth/sesion");
-    resp.ok ? mostrarChat() : mostrarLogin();
+    if (!resp.ok) {
+      mostrarLogin();
+      return;
+    }
+    mostrarChat();
+    // Correo -> perfil -> chat. Un runner del que no se sabe nada solo puede recibir
+    // ritmos estimados, y de los ritmos sale el plan entero: preguntarlo despues es
+    // preguntarlo tarde.
+    await pedirPerfilSiHaceFalta();
   } catch {
     mostrarLogin();
   }
@@ -596,17 +604,53 @@ const camposPerfil = {
 };
 const campoMarcaTiempo = document.getElementById("perfil-marca-tiempo");
 
+const introPerfil = document.getElementById("intro-perfil");
+const saltarPerfil = document.getElementById("saltar-perfil");
+
+async function rellenarPerfil() {
+  const resp = await fetch("/api/perfil");
+  if (!resp.ok) return null;
+  const perfil = await resp.json();
+  Object.entries(camposPerfil).forEach(([campo, input]) => {
+    input.value = perfil[campo] ?? "";
+  });
+  campoMarcaTiempo.value = deSegundos(perfil.marca_tiempo_seg);
+  return perfil;
+}
+
+function modoBienvenida(activo) {
+  panelPerfil.classList.toggle("modo-bienvenida", activo);
+  introPerfil.hidden = !activo;
+  saltarPerfil.hidden = !activo;
+}
+
+function cerrarPerfil() {
+  panelPerfil.hidden = true;
+  modoBienvenida(false);
+}
+
+saltarPerfil.addEventListener("click", cerrarPerfil);
+
+async function pedirPerfilSiHaceFalta() {
+  try {
+    const perfil = await rellenarPerfil();
+    // Sin nivel ni dias disponibles no se puede generar nada util. El nombre y la edad
+    // son bonitos de tener; estos dos son los que entran en el calculo.
+    if (!perfil || perfil.nivel || perfil.dias_disponibles) return;
+    mensajePerfil.hidden = true;
+    modoBienvenida(true);
+    abrirPanel(panelPerfil);
+  } catch {
+    /* si no se puede consultar el perfil, se entra al chat sin mas */
+  }
+}
+
 document.getElementById("boton-perfil").addEventListener("click", async () => {
+  modoBienvenida(false);
   abrirPanel(panelPerfil);
   mensajePerfil.hidden = true;
   try {
-    const resp = await fetch("/api/perfil");
-    if (!resp.ok) return;
-    const perfil = await resp.json();
-    Object.entries(camposPerfil).forEach(([campo, input]) => {
-      input.value = perfil[campo] ?? "";
-    });
-    campoMarcaTiempo.value = deSegundos(perfil.marca_tiempo_seg);
+    await rellenarPerfil();
   } catch {
     /* el formulario se queda vacio: se puede rellenar igual */
   }
@@ -624,7 +668,19 @@ formPerfil.addEventListener("submit", async (evento) => {
     const valor = input.value.trim();
     if (valor) cuerpo[campo] = input.type === "number" ? Number(valor) : valor;
   });
+  // Una marca a medias no sirve para nada: el ritmo sale de dividir tiempo entre
+  // distancia, asi que con una sola de las dos el plan seguiria con ritmos estimados
+  // y el runner creeria que ya dio su dato.
   const segundos = aSegundos(campoMarcaTiempo.value);
+  const hayDistancia = Boolean(cuerpo.marca_distancia_km);
+  if (hayDistancia !== Boolean(segundos)) {
+    mensajePerfil.textContent = hayDistancia
+      ? "Falta el tiempo de esa marca: sin él no puedo calcular tus ritmos."
+      : "¿Sobre qué distancia es ese tiempo?";
+    mensajePerfil.hidden = false;
+    boton.disabled = false;
+    return;
+  }
   if (segundos) cuerpo.marca_tiempo_seg = segundos;
 
   try {
@@ -636,6 +692,10 @@ formPerfil.addEventListener("submit", async (evento) => {
     mensajePerfil.textContent = resp.ok
       ? "Guardado. Con esto te ajusto mejor los ritmos."
       : "No pudimos guardarlo. Revisa los datos e intenta otra vez.";
+    // En la bienvenida, guardar es la puerta al chat: se deja leer el mensaje y se pasa.
+    if (resp.ok && panelPerfil.classList.contains("modo-bienvenida")) {
+      setTimeout(cerrarPerfil, 900);
+    }
   } catch {
     mensajePerfil.textContent = "No pudimos guardarlo. Intenta otra vez.";
   } finally {

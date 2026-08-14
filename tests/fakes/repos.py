@@ -1,12 +1,23 @@
 """Dobles en memoria para tests. Sin red, sin BD — ver docs/contexto/08-CONVENCIONES.md."""
 
+from collections.abc import Sequence
 from dataclasses import fields, replace
 from datetime import UTC, date, datetime
 from uuid import UUID, uuid4
 
-from app.domain.models import DatosPerfil, Runner, TokenAcceso
-from app.domain.ports.repositories import PlanRepo, RunnerRepo, TokenAccesoRepo
+from app.domain.models import DatosPerfil, Hecho, Mensaje, Runner, TokenAcceso
+from app.domain.ports.repositories import (
+    ConversacionRepo,
+    MemoriaRepo,
+    PlanRepo,
+    RunnerRepo,
+    TokenAccesoRepo,
+)
 from app.domain.training.modelos import Objetivo, PlanActivo, PlanEntrenamiento, SesionProgramada
+
+# El fake comparte la normalizacion con el repo real: si deduplicaran distinto, los
+# tests probarian un comportamiento que en produccion no existe.
+from app.infrastructure.persistence.repos import normalizar_hecho
 
 
 class InMemoryRunnerRepo(RunnerRepo):
@@ -114,3 +125,35 @@ class InMemoryPlanRepo(PlanRepo):
     async def proxima_sesion(self, runner_id: UUID, desde: date) -> SesionProgramada | None:
         activo = await self.obtener_activo(runner_id)
         return activo.proxima_sesion(desde) if activo else None
+
+
+class InMemoryConversacionRepo(ConversacionRepo):
+    def __init__(self) -> None:
+        self._por_runner: dict[UUID, list[Mensaje]] = {}
+
+    async def guardar(self, runner_id: UUID, mensajes: Sequence[Mensaje]) -> None:
+        self._por_runner.setdefault(runner_id, []).extend(mensajes)
+
+    async def ultimos(self, runner_id: UUID, limite: int = 10) -> list[Mensaje]:
+        return self._por_runner.get(runner_id, [])[-limite:]
+
+
+class InMemoryMemoriaRepo(MemoriaRepo):
+    def __init__(self) -> None:
+        self._por_runner: dict[UUID, list[Hecho]] = {}
+
+    async def guardar(self, runner_id: UUID, hechos: Sequence[Hecho]) -> int:
+        existentes = self._por_runner.setdefault(runner_id, [])
+        conocidos = {(h.categoria, normalizar_hecho(h.hecho)) for h in existentes if h.vigente}
+        guardados = 0
+        for hecho in hechos:
+            clave = (hecho.categoria, normalizar_hecho(hecho.hecho))
+            if clave in conocidos:
+                continue
+            conocidos.add(clave)
+            existentes.append(hecho)
+            guardados += 1
+        return guardados
+
+    async def vigentes(self, runner_id: UUID, limite: int = 25) -> list[Hecho]:
+        return [h for h in reversed(self._por_runner.get(runner_id, [])) if h.vigente][:limite]

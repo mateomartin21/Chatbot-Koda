@@ -8,7 +8,13 @@ from httpx import ASGITransport, AsyncClient
 from app.interfaces.api import deps
 from app.main import app
 from tests.fakes.email import FakeEmail
-from tests.fakes.repos import InMemoryPlanRepo, InMemoryRunnerRepo, InMemoryTokenAccesoRepo
+from tests.fakes.repos import (
+    InMemoryConversacionRepo,
+    InMemoryMemoriaRepo,
+    InMemoryPlanRepo,
+    InMemoryRunnerRepo,
+    InMemoryTokenAccesoRepo,
+)
 
 
 @pytest_asyncio.fixture
@@ -17,6 +23,8 @@ async def repos() -> deps.Repos:
         runners=InMemoryRunnerRepo(),
         tokens=InMemoryTokenAccesoRepo(),
         planes=InMemoryPlanRepo(),
+        conversaciones=InMemoryConversacionRepo(),
+        memoria=InMemoryMemoriaRepo(),
     )
 
 

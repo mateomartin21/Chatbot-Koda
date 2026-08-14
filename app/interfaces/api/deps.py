@@ -16,11 +16,23 @@ from app.container import Container, build_container
 from app.domain.models import Runner
 from app.domain.ports.email_port import EmailPort
 from app.domain.ports.llm_port import LLMPort
-from app.domain.ports.repositories import PlanRepo, RunnerRepo, TokenAccesoRepo
+from app.domain.ports.repositories import (
+    ConversacionRepo,
+    MemoriaRepo,
+    PlanRepo,
+    RunnerRepo,
+    TokenAccesoRepo,
+)
 from app.domain.ports.stt_port import STTPort
 from app.domain.ports.tts_port import TTSPort
 from app.domain.ports.voz_realtime_port import VozRealtimePort
-from app.infrastructure.persistence.repos import SqlPlanRepo, SqlRunnerRepo, SqlTokenAccesoRepo
+from app.infrastructure.persistence.repos import (
+    SqlConversacionRepo,
+    SqlMemoriaRepo,
+    SqlPlanRepo,
+    SqlRunnerRepo,
+    SqlTokenAccesoRepo,
+)
 
 COOKIE_NAME = "koda_session"
 
@@ -59,6 +71,10 @@ def get_coach_system_prompt(container: Container = Depends(get_container)) -> st
     return container.coach_system_prompt
 
 
+def get_coach_voz_prompt(container: Container = Depends(get_container)) -> str:
+    return container.coach_voz_prompt
+
+
 async def get_session(container: Container = Depends(get_container)) -> AsyncIterator[AsyncSession]:
     async with container.session_factory() as session:
         yield session
@@ -69,6 +85,8 @@ class Repos:
     runners: RunnerRepo
     tokens: TokenAccesoRepo
     planes: PlanRepo
+    conversaciones: ConversacionRepo
+    memoria: MemoriaRepo
 
 
 def get_repos(session: AsyncSession = Depends(get_session)) -> Repos:
@@ -76,6 +94,8 @@ def get_repos(session: AsyncSession = Depends(get_session)) -> Repos:
         runners=SqlRunnerRepo(session),
         tokens=SqlTokenAccesoRepo(session),
         planes=SqlPlanRepo(session),
+        conversaciones=SqlConversacionRepo(session),
+        memoria=SqlMemoriaRepo(session),
     )
 
 

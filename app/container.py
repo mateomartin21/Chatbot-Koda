@@ -35,6 +35,9 @@ class Container:
     tts: TTSPort
     voz_realtime: VozRealtimePort
     coach_system_prompt: str
+    # Nova Sonic recibe un prompt aparte, mucho mas corto. No es duplicacion por
+    # descuido: ver el comentario de build_container.
+    coach_voz_prompt: str
 
 
 def build_container(settings: Settings | None = None) -> Container:
@@ -68,6 +71,14 @@ def build_container(settings: Settings | None = None) -> Container:
 
     coach_system_prompt = (_PROMPTS_DIR / "coach_system.md").read_text(encoding="utf-8")
 
+    # Dos prompts para el mismo coach, a proposito. coach_system.md son ~2.800
+    # caracteres escritos para un modelo grande; con esa longitud Nova Sonic ignoraba
+    # instrucciones explicitas (preguntaba el anio teniendo la fecha de hoy delante,
+    # y volvia a pedir datos del perfil que tenia justo encima). Es un modelo pequeno
+    # optimizado para latencia y su seguimiento de instrucciones se degrada con la
+    # longitud. coach_voz.md dice lo mismo en un tercio del espacio.
+    coach_voz_prompt = (_PROMPTS_DIR / "coach_voz.md").read_text(encoding="utf-8")
+
     return Container(
         settings=settings,
         session_factory=crear_session_factory(settings),
@@ -77,4 +88,5 @@ def build_container(settings: Settings | None = None) -> Container:
         tts=tts,
         voz_realtime=voz_realtime,
         coach_system_prompt=coach_system_prompt,
+        coach_voz_prompt=coach_voz_prompt,
     )
