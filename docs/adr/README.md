@@ -42,3 +42,4 @@ Las negativas son obligatorias. Un ADR sin consecuencias negativas es publicidad
 | [009](ADR-009-groq-stt-temporal.md) | Groq Whisper como STT temporal mientras Transcribe se desbloquea | Aceptado |
 | [010](ADR-010-sin-dominio-propio-para-ses.md) | Sin dominio propio para SES — se acepta el riesgo de spam | Aceptado |
 | [011](ADR-011-nova-sonic-y-gateway-de-modelos.md) | Voz en tiempo real con Nova Sonic y gateway de modelos con fallback | Aceptado |
+| [012](ADR-012-tensiones-entre-reglas-de-entrenamiento.md) | Cómo se resuelven las contradicciones entre las reglas R1–R8 | Aceptado |
