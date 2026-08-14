@@ -83,12 +83,23 @@ def sesion_hablada(programada: SesionProgramada) -> str:
     return f"{cuando}: {sesion.descripcion}"
 
 
-def plan_hablado(activo: PlanActivo, proxima: SesionProgramada | None) -> str:
+def plan_hablado(activo: PlanActivo, proxima: SesionProgramada | None, hoy: date | None = None) -> str:
     plan = activo.plan
     volumenes = [s.volumen_km for s in plan.semanas]
     lineas = [
         f"Plan de {activo.objetivo.distancia.etiqueta} guardado: {len(plan.semanas)} semanas, "
         f"del {fecha_hablada(activo.fecha_inicio)} al {fecha_hablada(activo.objetivo.fecha_carrera)}.",
+    ]
+    # El plan se ancla al final (su ultima semana es la de la carrera), asi que su
+    # arranque suele caer unos dias por delante. Sin decirlo, el runner abre su plan,
+    # ve una fecha futura y cree que algo fallo.
+    if (dia := hoy or date.today()) < activo.fecha_inicio:
+        faltan = (activo.fecha_inicio - dia).days
+        lineas.append(
+            f"OJO: el plan todavia no ha empezado, arranca en {faltan} dias porque se "
+            f"cuenta hacia atras desde la carrera. Hasta entonces, rodajes suaves y sin prisa."
+        )
+    lineas += [
         f"Empieza en {volumenes[0]:.0f} km por semana y llega a {max(volumenes):.0f} km.",
         f"Ritmos: facil {plan.zonas.facil}, tirada larga {plan.zonas.larga}, "
         f"tempo {plan.zonas.tempo}, series {plan.zonas.intervalos}.",
@@ -167,7 +178,7 @@ def construir_system_prompt(base: str, contexto: ContextoConversacion) -> str:
     ]
 
     if contexto.plan is not None:
-        bloques.append("## Su plan\n" + plan_hablado(contexto.plan, contexto.proxima_sesion))
+        bloques.append("## Su plan\n" + plan_hablado(contexto.plan, contexto.proxima_sesion, contexto.hoy))
     else:
         bloques.append("No tiene ningun plan activo todavia.")
 

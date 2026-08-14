@@ -158,3 +158,36 @@ async def test_el_contexto_de_a_no_contiene_nada_de_b(repos):
     assert "me opero" not in prompt_de_ana
     assert "42K" not in prompt_de_ana
     assert "Bruno" not in prompt_de_ana
+
+
+async def test_un_plan_que_aun_no_ha_empezado_lo_avisa(runner, repos):
+    """El plan se cuenta hacia atras desde la carrera, asi que suele arrancar unos dias
+    despues de pedirlo. Sin avisarlo, parece un error de fechas — y lo parecio."""
+    await crear_plan(
+        runner=runner,
+        datos=DatosDelPlan(distancia_km=42, fecha_carrera=HOY + timedelta(weeks=18)),
+        runners=repos.runners,
+        planes=repos.planes,
+        hoy=HOY,
+    )
+    activo = await repos.planes.obtener_activo(runner.id)
+
+    assert activo.fecha_inicio > HOY  # el plan no arranca hoy
+    assert "todavia no ha empezado" in await _prompt_de(runner, repos)
+
+
+async def test_un_plan_ya_en_marcha_no_avisa_de_nada(runner, repos):
+    """El mismo plan, consultado cuando ya arranco: el aviso desaparece solo."""
+    await crear_plan(
+        runner=runner,
+        datos=DatosDelPlan(distancia_km=10, fecha_carrera=HOY + timedelta(weeks=13)),
+        runners=repos.runners,
+        planes=repos.planes,
+        hoy=HOY,
+    )
+    activo = await repos.planes.obtener_activo(runner.id)
+    ya_empezado = construir_system_prompt(
+        BASE, await construir_contexto(runner, repos, hoy=activo.fecha_inicio)
+    )
+
+    assert "todavia no ha empezado" not in ya_empezado

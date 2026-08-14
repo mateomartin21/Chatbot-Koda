@@ -526,6 +526,21 @@ function pintarPlan(plan) {
     ),
   );
 
+  // El plan se cuenta hacia atras desde la carrera, asi que su arranque suele caer
+  // unos dias por delante. Decirlo evita que parezca un error de fechas.
+  const hoy = new Date().toISOString().slice(0, 10);
+  if (plan.fecha_inicio > hoy) {
+    const nota = crear("p", "aviso");
+    nota.appendChild(crear("span", "destacado", `Arranca el ${fechaCorta(plan.fecha_inicio)}. `));
+    nota.appendChild(
+      document.createTextNode(
+        "El plan se cuenta hacia atrás desde la carrera para que la bajada de carga " +
+          "caiga justo antes. Hasta entonces, rodajes suaves y sin prisa.",
+      ),
+    );
+    resumen.appendChild(nota);
+  }
+
   if (plan.proxima_sesion) {
     const proxima = crear("p", null);
     proxima.appendChild(crear("span", "destacado", "Lo siguiente: "));

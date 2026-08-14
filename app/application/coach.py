@@ -149,7 +149,7 @@ async def _crear_plan(runner: Runner, repos: ReposDelCoach, argumentos: dict, ho
         return f"No se pudo crear el plan: {invalido}"
 
     proxima = await consultar_proxima_sesion(runner.id, repos.planes, hoy=hoy)
-    return plan_hablado(activo, proxima)
+    return plan_hablado(activo, proxima, hoy)
 
 
 async def _consultar_plan(runner: Runner, repos: ReposDelCoach, hoy: date) -> str:
@@ -159,7 +159,7 @@ async def _consultar_plan(runner: Runner, repos: ReposDelCoach, hoy: date) -> st
             "Este runner no tiene ningun plan activo. Preguntale que carrera quiere preparar y para cuando."
         )
     proxima = await consultar_proxima_sesion(runner.id, repos.planes, hoy=hoy)
-    return plan_hablado(activo, proxima)
+    return plan_hablado(activo, proxima, hoy)
 
 
 async def _guardar_datos(runner: Runner, repos: ReposDelCoach, argumentos: dict) -> str:
