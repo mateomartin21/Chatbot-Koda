@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, WebSocket
 from app.application.coach import HERRAMIENTAS, ejecutor_para
 from app.application.contexto import ReposDelCoach, construir_contexto, construir_system_prompt
 from app.config import Settings
+from app.container import Container
 from app.domain.models import Mensaje
 from app.domain.ports.voz_realtime_port import (
     ErrorSesion,
@@ -28,9 +29,11 @@ from app.interfaces.api.deps import (
     COOKIE_NAME,
     Repos,
     get_coach_voz_prompt,
+    get_container,
     get_repos,
     get_settings,
     get_voz_realtime_port,
+    lanzar_extraccion_de_memoria,
     runner_desde_token,
 )
 
@@ -47,6 +50,7 @@ async def voz_realtime(
     repos: Repos = Depends(get_repos),
     settings: Settings = Depends(get_settings),
     voz: VozRealtimePort = Depends(get_voz_realtime_port),
+    container: Container = Depends(get_container),
     # Prompt propio, corto (ver container.build_container): con el de texto, Nova Sonic
     # ignoraba instrucciones que tenia escritas literalmente delante.
     system_prompt: str = Depends(get_coach_voz_prompt),
@@ -146,6 +150,7 @@ async def voz_realtime(
             mensajes.append(Mensaje(rol="coach", contenido=texto, modalidad="voz"))
         if mensajes:
             await repos.conversaciones.guardar(runner.id, mensajes)
+            lanzar_extraccion_de_memoria(runner.id, mensajes, container)
         del_runner.clear()
         de_koda.clear()
 

@@ -34,10 +34,15 @@ class Container:
     llm: LLMPort
     tts: TTSPort
     voz_realtime: VozRealtimePort
+    # Modelo pequeno para la extraccion de memoria: es clasificacion, no razonamiento
+    # (docs/contexto/05-MEMORIA.md §5). Va aparte del gateway a proposito — aqui no
+    # interesa la calidad del tier 1, interesa que sea barato.
+    llm_barato: LLMPort
     coach_system_prompt: str
     # Nova Sonic recibe un prompt aparte, mucho mas corto. No es duplicacion por
     # descuido: ver el comentario de build_container.
     coach_voz_prompt: str
+    prompt_extraccion_memoria: str
 
 
 def build_container(settings: Settings | None = None) -> Container:
@@ -62,6 +67,14 @@ def build_container(settings: Settings | None = None) -> Container:
         tiers_llm.append(GroqLLM(settings))
     llm: LLMPort = ModelGatewayLLM(tiers_llm)
 
+    # Si no hay modelo barato configurado, la extraccion usa el gateway completo: mas
+    # cara, pero mejor que quedarse sin memoria por una variable de entorno vacia.
+    llm_barato: LLMPort = (
+        BedrockConverse(settings, settings.bedrock_model_id_barato)
+        if settings.bedrock_model_id_barato
+        else llm
+    )
+
     tts: TTSPort = PollyTTS(settings)
 
     # Nivel 0 del pipeline de voz (docs/adr/ADR-011-nova-sonic-y-gateway-de-modelos.md):
@@ -78,6 +91,7 @@ def build_container(settings: Settings | None = None) -> Container:
     # optimizado para latencia y su seguimiento de instrucciones se degrada con la
     # longitud. coach_voz.md dice lo mismo en un tercio del espacio.
     coach_voz_prompt = (_PROMPTS_DIR / "coach_voz.md").read_text(encoding="utf-8")
+    prompt_extraccion_memoria = (_PROMPTS_DIR / "extraccion_memoria.md").read_text(encoding="utf-8")
 
     return Container(
         settings=settings,
@@ -87,6 +101,8 @@ def build_container(settings: Settings | None = None) -> Container:
         llm=llm,
         tts=tts,
         voz_realtime=voz_realtime,
+        llm_barato=llm_barato,
         coach_system_prompt=coach_system_prompt,
         coach_voz_prompt=coach_voz_prompt,
+        prompt_extraccion_memoria=prompt_extraccion_memoria,
     )

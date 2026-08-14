@@ -2,7 +2,8 @@
 runner_id sale siempre de aqui, nunca del body/query/header. Ver
 docs/contexto/03-MULTIUSUARIO-Y-SEGURIDAD.md §4.2."""
 
-from collections.abc import AsyncIterator
+import asyncio
+from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
@@ -11,9 +12,10 @@ import jwt
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.application.memoria import extraer_y_guardar
 from app.config import Settings
 from app.container import Container, build_container
-from app.domain.models import Runner
+from app.domain.models import Mensaje, Runner
 from app.domain.ports.email_port import EmailPort
 from app.domain.ports.llm_port import LLMPort
 from app.domain.ports.repositories import (
@@ -97,6 +99,33 @@ def get_repos(session: AsyncSession = Depends(get_session)) -> Repos:
         conversaciones=SqlConversacionRepo(session),
         memoria=SqlMemoriaRepo(session),
     )
+
+
+# Las tareas de fondo se guardan aqui porque asyncio solo mantiene una referencia
+# debil: sin esto, el recolector puede matar la extraccion a medias sin avisar.
+_tareas_de_fondo: set[asyncio.Task] = set()
+
+
+def lanzar_extraccion_de_memoria(runner_id: UUID, mensajes: Sequence[Mensaje], container: Container) -> None:
+    """Dispara la capa 3 sin bloquear la respuesta (docs/contexto/05-MEMORIA.md §5).
+
+    Abre su PROPIA sesion de base de datos: la de la peticion ya esta cerrada cuando
+    esto corre, que es justo el punto de que no este en el camino critico.
+    """
+
+    async def _tarea() -> None:
+        async with container.session_factory() as session:
+            await extraer_y_guardar(
+                runner_id,
+                mensajes,
+                SqlMemoriaRepo(session),
+                container.llm_barato,
+                container.prompt_extraccion_memoria,
+            )
+
+    tarea = asyncio.create_task(_tarea())
+    _tareas_de_fondo.add(tarea)
+    tarea.add_done_callback(_tareas_de_fondo.discard)
 
 
 def crear_jwt(runner_id: UUID, settings: Settings) -> str:
