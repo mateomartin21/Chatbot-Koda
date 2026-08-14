@@ -438,4 +438,210 @@ botonMic.addEventListener("click", async () => {
   await iniciarGrabacionCascada();
 });
 
+// --- Paneles de plan y perfil ---
+
+const DIAS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
+const panelPlan = document.getElementById("panel-plan");
+const panelPerfil = document.getElementById("panel-perfil");
+const contenidoPlan = document.getElementById("contenido-plan");
+const formPerfil = document.getElementById("form-perfil");
+const mensajePerfil = document.getElementById("mensaje-perfil");
+
+function abrirPanel(panel) {
+  panel.hidden = false;
+}
+
+document.querySelectorAll(".cerrar-panel").forEach((boton) => {
+  boton.addEventListener("click", () => (boton.closest(".panel").hidden = true));
+});
+
+function crear(etiqueta, clase, texto) {
+  const nodo = document.createElement(etiqueta);
+  if (clase) nodo.className = clase;
+  if (texto !== undefined) nodo.textContent = texto;
+  return nodo;
+}
+
+function fechaCorta(iso) {
+  // El backend manda YYYY-MM-DD. new Date("2026-11-08") se interpreta como UTC y en
+  // husos al oeste retrocede un dia: se construye a mano para que el domingo no
+  // aparezca como sabado.
+  const [anio, mes, dia] = iso.split("-").map(Number);
+  return new Date(anio, mes - 1, dia).toLocaleDateString("es-MX", { day: "numeric", month: "short" });
+}
+
+function nodoSesion(sesion) {
+  const fila = crear("div", "sesion");
+  fila.appendChild(crear("span", "sesion-dia", DIAS[sesion.dia_semana]));
+  if (sesion.tipo === "descanso") {
+    fila.appendChild(crear("span", "sesion-descanso", "Descanso"));
+    return fila;
+  }
+  fila.appendChild(crear("span", null, sesion.descripcion));
+  return fila;
+}
+
+function nodoSemana(semana, esPrimeraAbierta) {
+  const detalle = crear("details", "semana");
+  detalle.open = esPrimeraAbierta;
+  const resumen = crear("summary");
+  resumen.appendChild(crear("span", null, `Semana ${semana.numero}`));
+  const derecha = crear("span", null);
+  if (semana.es_taper) derecha.appendChild(crear("span", "etiqueta etiqueta-taper", "taper"));
+  else if (semana.es_descarga) derecha.appendChild(crear("span", "etiqueta etiqueta-descarga", "descarga"));
+  derecha.appendChild(crear("span", null, ` ${semana.volumen_km} km`));
+  resumen.appendChild(derecha);
+  detalle.appendChild(resumen);
+  semana.sesiones.forEach((sesion) => detalle.appendChild(nodoSesion(sesion)));
+  return detalle;
+}
+
+function pintarPlan(plan) {
+  contenidoPlan.replaceChildren();
+
+  if (!plan) {
+    const vacio = crear("p", "vacio");
+    vacio.textContent =
+      "Todavía no tienes un plan. Dile a Koda qué carrera quieres correr y para cuándo, y te lo arma.";
+    contenidoPlan.appendChild(vacio);
+    return;
+  }
+
+  const resumen = crear("div", "resumen-plan");
+  resumen.appendChild(crear("h3", null, plan.nombre_carrera || `Tu ${plan.distancia}`));
+  resumen.appendChild(
+    crear(
+      "p",
+      "aviso",
+      `${plan.distancia} el ${fechaCorta(plan.fecha_carrera)} · ${plan.semanas.length} semanas · ` +
+        `${plan.volumen_total_km} km en total`,
+    ),
+  );
+
+  if (plan.proxima_sesion) {
+    const proxima = crear("p", null);
+    proxima.appendChild(crear("span", "destacado", "Lo siguiente: "));
+    proxima.appendChild(
+      document.createTextNode(
+        `${DIAS[plan.proxima_sesion.dia_semana]} ${fechaCorta(plan.proxima_sesion.fecha)} — ` +
+          plan.proxima_sesion.descripcion,
+      ),
+    );
+    resumen.appendChild(proxima);
+  }
+
+  const zonas = crear("ul", "zonas");
+  Object.entries(plan.zonas).forEach(([nombre, ritmo]) => {
+    const item = crear("li");
+    item.appendChild(crear("span", null, nombre));
+    item.appendChild(document.createTextNode(ritmo));
+    zonas.appendChild(item);
+  });
+  resumen.appendChild(zonas);
+
+  if (plan.ritmos_estimados) {
+    resumen.appendChild(
+      crear("p", "aviso", "Ritmos estimados: en cuanto registres una marca real, los ajusto."),
+    );
+  }
+  plan.notas.forEach((nota) => resumen.appendChild(crear("p", "aviso", nota)));
+  contenidoPlan.appendChild(resumen);
+
+  const semanaDeLaProxima = plan.proxima_sesion
+    ? plan.semanas.find((s) => s.sesiones.some((x) => x.fecha === plan.proxima_sesion.fecha))
+    : null;
+  plan.semanas.forEach((semana) =>
+    contenidoPlan.appendChild(nodoSemana(semana, semana === semanaDeLaProxima)),
+  );
+}
+
+async function cargarPlan() {
+  abrirPanel(panelPlan);
+  contenidoPlan.replaceChildren(crear("p", "vacio", "Cargando…"));
+  try {
+    const resp = await fetch("/api/plan");
+    pintarPlan(resp.ok ? await resp.json() : null);
+  } catch {
+    contenidoPlan.replaceChildren(crear("p", "vacio", "No pudimos cargar tu plan. Intenta otra vez."));
+  }
+}
+
+document.getElementById("boton-plan").addEventListener("click", cargarPlan);
+
+// El tiempo se teclea como se dice ("25:00", "1:42:30"); la API trabaja en segundos.
+function aSegundos(texto) {
+  if (!texto || !texto.trim()) return null;
+  const partes = texto.trim().split(":").map(Number);
+  if (partes.some(Number.isNaN)) return null;
+  return partes.reduce((total, parte) => total * 60 + parte, 0);
+}
+
+function deSegundos(segundos) {
+  if (!segundos) return "";
+  const horas = Math.floor(segundos / 3600);
+  const minutos = Math.floor((segundos % 3600) / 60);
+  const resto = Math.round(segundos % 60);
+  const dosDigitos = (n) => String(n).padStart(2, "0");
+  return horas
+    ? `${horas}:${dosDigitos(minutos)}:${dosDigitos(resto)}`
+    : `${minutos}:${dosDigitos(resto)}`;
+}
+
+const camposPerfil = {
+  nombre: document.getElementById("perfil-nombre"),
+  edad: document.getElementById("perfil-edad"),
+  nivel: document.getElementById("perfil-nivel"),
+  dias_disponibles: document.getElementById("perfil-dias"),
+  marca_distancia_km: document.getElementById("perfil-marca-km"),
+};
+const campoMarcaTiempo = document.getElementById("perfil-marca-tiempo");
+
+document.getElementById("boton-perfil").addEventListener("click", async () => {
+  abrirPanel(panelPerfil);
+  mensajePerfil.hidden = true;
+  try {
+    const resp = await fetch("/api/perfil");
+    if (!resp.ok) return;
+    const perfil = await resp.json();
+    Object.entries(camposPerfil).forEach(([campo, input]) => {
+      input.value = perfil[campo] ?? "";
+    });
+    campoMarcaTiempo.value = deSegundos(perfil.marca_tiempo_seg);
+  } catch {
+    /* el formulario se queda vacio: se puede rellenar igual */
+  }
+});
+
+formPerfil.addEventListener("submit", async (evento) => {
+  evento.preventDefault();
+  const boton = formPerfil.querySelector("button[type=submit]");
+  boton.disabled = true;
+
+  // Solo se mandan los campos con valor: null en la API significa "no me lo has
+  // dicho", nunca "borralo".
+  const cuerpo = {};
+  Object.entries(camposPerfil).forEach(([campo, input]) => {
+    const valor = input.value.trim();
+    if (valor) cuerpo[campo] = input.type === "number" ? Number(valor) : valor;
+  });
+  const segundos = aSegundos(campoMarcaTiempo.value);
+  if (segundos) cuerpo.marca_tiempo_seg = segundos;
+
+  try {
+    const resp = await fetch("/api/perfil", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cuerpo),
+    });
+    mensajePerfil.textContent = resp.ok
+      ? "Guardado. Con esto te ajusto mejor los ritmos."
+      : "No pudimos guardarlo. Revisa los datos e intenta otra vez.";
+  } catch {
+    mensajePerfil.textContent = "No pudimos guardarlo. Intenta otra vez.";
+  } finally {
+    mensajePerfil.hidden = false;
+    boton.disabled = false;
+  }
+});
+
 init();

@@ -12,7 +12,7 @@ from starlette.websockets import WebSocketDisconnect
 from app.domain.ports.voz_realtime_port import FragmentoAudio, TranscripcionParcial, TurnoTerminado
 from app.interfaces.api import deps
 from app.main import app
-from tests.fakes.repos import InMemoryRunnerRepo, InMemoryTokenAccesoRepo
+from tests.fakes.repos import InMemoryPlanRepo, InMemoryRunnerRepo, InMemoryTokenAccesoRepo
 from tests.fakes.voz_realtime import FakeVozRealtimePort
 
 _CODIGO_CIERRE_NO_AUTENTICADO = 4401
@@ -20,7 +20,9 @@ _CODIGO_CIERRE_FALLBACK = 4500
 
 
 def _preparar(voz_fake: FakeVozRealtimePort, *, con_cookie: bool) -> TestClient:
-    repos = deps.Repos(runners=InMemoryRunnerRepo(), tokens=InMemoryTokenAccesoRepo())
+    repos = deps.Repos(
+        runners=InMemoryRunnerRepo(), tokens=InMemoryTokenAccesoRepo(), planes=InMemoryPlanRepo()
+    )
     app.dependency_overrides[deps.get_repos] = lambda: repos
     app.dependency_overrides[deps.get_voz_realtime_port] = lambda: voz_fake
     app.dependency_overrides[deps.get_coach_system_prompt] = lambda: "eres koda"

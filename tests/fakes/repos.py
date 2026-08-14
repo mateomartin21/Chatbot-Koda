@@ -1,10 +1,12 @@
 """Dobles en memoria para tests. Sin red, sin BD — ver docs/contexto/08-CONVENCIONES.md."""
 
-from datetime import UTC, datetime
+from dataclasses import fields, replace
+from datetime import UTC, date, datetime
 from uuid import UUID, uuid4
 
-from app.domain.models import Runner, TokenAcceso
-from app.domain.ports.repositories import RunnerRepo, TokenAccesoRepo
+from app.domain.models import DatosPerfil, Runner, TokenAcceso
+from app.domain.ports.repositories import PlanRepo, RunnerRepo, TokenAccesoRepo
+from app.domain.training.modelos import Objetivo, PlanActivo, PlanEntrenamiento, SesionProgramada
 
 
 class InMemoryRunnerRepo(RunnerRepo):
@@ -28,6 +30,16 @@ class InMemoryRunnerRepo(RunnerRepo):
         runner = Runner(id=uuid4(), email=email, creado_en=ahora, ultimo_acceso=ahora)
         self._runners[runner.id] = runner
         return runner
+
+    async def actualizar_perfil(self, runner_id: UUID, datos: DatosPerfil) -> Runner:
+        runner = self._runners[runner_id]
+        cambios = {
+            campo.name: getattr(datos, campo.name)
+            for campo in fields(datos)
+            if getattr(datos, campo.name) is not None
+        }
+        self._runners[runner_id] = replace(runner, **cambios)
+        return self._runners[runner_id]
 
     def agregar(self, runner: Runner) -> None:
         self._runners[runner.id] = runner
@@ -71,3 +83,34 @@ class InMemoryTokenAccesoRepo(TokenAccesoRepo):
 
     def agregar(self, token: TokenAcceso) -> None:
         self._tokens[token.id] = token
+
+
+class InMemoryPlanRepo(PlanRepo):
+    """El plan activo de cada runner es el ultimo que guardo: es exactamente lo que
+    hace SqlPlanRepo al jubilar los objetivos anteriores."""
+
+    def __init__(self) -> None:
+        self._por_runner: dict[UUID, list[PlanActivo]] = {}
+
+    async def guardar(
+        self, runner_id: UUID, objetivo: Objetivo, plan: PlanEntrenamiento, fecha_inicio: date
+    ) -> PlanActivo:
+        historial = self._por_runner.setdefault(runner_id, [])
+        guardado = PlanActivo(
+            id=uuid4(),
+            objetivo=objetivo,
+            plan=plan,
+            fecha_inicio=fecha_inicio,
+            generado_en=datetime.now(UTC),
+            version=len(historial) + 1,
+        )
+        historial.append(guardado)
+        return guardado
+
+    async def obtener_activo(self, runner_id: UUID) -> PlanActivo | None:
+        historial = self._por_runner.get(runner_id, [])
+        return historial[-1] if historial else None
+
+    async def proxima_sesion(self, runner_id: UUID, desde: date) -> SesionProgramada | None:
+        activo = await self.obtener_activo(runner_id)
+        return activo.proxima_sesion(desde) if activo else None

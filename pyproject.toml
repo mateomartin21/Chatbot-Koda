@@ -5,6 +5,9 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 110
 target-version = "py312"
+# ruff format reescribe tambien los bloques ```python de los .md, y docs/contexto es
+# documentacion de referencia recibida: se lee, no se reformatea.
+extend-exclude = ["docs"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]

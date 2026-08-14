@@ -36,7 +36,7 @@ _FRACCION_INTENSIDAD = 0.20  # R2: 80/20 polarizado
 # exigiria un salto del +43%, y limitar la vuelta al +10% hace que el plan ENCOJA
 # (1.10^3 x 0.70 = 0.93 por bloque de cuatro semanas). Se recorta un 20%, que si deja
 # progresar (1.10^3 x 0.80 = 1.06 por bloque) sin renunciar a la semana de asimilacion.
-# Ver docs/adr/ADR-012-descarga-del-20-por-ciento.md.
+# Ver docs/adr/ADR-012-tensiones-entre-reglas-de-entrenamiento.md.
 _RECORTE_DESCARGA = 0.80
 
 # Dias de la semana en que se corre, segun cuantos dias tenga disponibles el runner
@@ -295,7 +295,8 @@ def _reparto_segun_frecuencia(dias_corriendo: int) -> tuple[float, float]:
     R8 fija ese techo en el 35%, pero eso asume semanas de 5-6 dias. Con solo 3, tres
     sesiones de <=35% obligan a que las tres sean casi identicas: eso no es entrenar,
     es repetir. En quien corre 3 dias, la tirada larga ES proporcionalmente mas larga
-    — asi funcionan los planes reales. Ver docs/adr/ADR-012-tensiones-entre-reglas.md.
+    — asi funcionan los planes reales.
+    Ver docs/adr/ADR-012-tensiones-entre-reglas-de-entrenamiento.md.
     """
     if dias_corriendo <= 3:
         return 0.42, 0.45

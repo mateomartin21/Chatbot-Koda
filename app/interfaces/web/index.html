@@ -22,7 +22,9 @@
 
   <main id="pantalla-chat" class="pantalla-chat" hidden>
     <header class="cabecera-chat">
+      <button type="button" id="boton-perfil" class="boton-icono" aria-label="Mi perfil">⚙️</button>
       <span>🐺 Koda</span>
+      <button type="button" id="boton-plan" class="boton-icono" aria-label="Mi plan">📋</button>
     </header>
 
     <div id="burbujas" class="burbujas" aria-live="polite"></div>
@@ -40,6 +42,55 @@
 
     <audio id="reproductor" hidden></audio>
   </main>
+
+  <!-- Los dos paneles viven fuera del chat y se superponen: en movil no hay sitio
+       para nada al lado, y el chat sigue siendo la pantalla principal. -->
+  <section id="panel-plan" class="panel" hidden aria-labelledby="titulo-plan">
+    <header class="cabecera-panel">
+      <h2 id="titulo-plan">Mi plan</h2>
+      <button type="button" class="boton-icono cerrar-panel" aria-label="Cerrar">✕</button>
+    </header>
+    <div id="contenido-plan" class="contenido-panel" aria-live="polite"></div>
+  </section>
+
+  <section id="panel-perfil" class="panel" hidden aria-labelledby="titulo-perfil">
+    <header class="cabecera-panel">
+      <h2 id="titulo-perfil">Mi perfil</h2>
+      <button type="button" class="boton-icono cerrar-panel" aria-label="Cerrar">✕</button>
+    </header>
+    <div class="contenido-panel">
+      <p class="mensaje">
+        Cuanto más sepa de ti, mejor te ajusto los ritmos. También puedes contármelo hablando.
+      </p>
+      <form id="form-perfil">
+        <label for="perfil-nombre">Cómo te llamo</label>
+        <input type="text" id="perfil-nombre" autocomplete="given-name" />
+
+        <label for="perfil-edad">Edad</label>
+        <input type="number" id="perfil-edad" min="10" max="100" inputmode="numeric" />
+
+        <label for="perfil-nivel">Nivel</label>
+        <select id="perfil-nivel">
+          <option value="">Prefiero no decirlo</option>
+          <option value="principiante">Principiante</option>
+          <option value="intermedio">Intermedio</option>
+          <option value="avanzado">Avanzado</option>
+        </select>
+
+        <label for="perfil-dias">Días que puedes correr por semana</label>
+        <input type="number" id="perfil-dias" min="2" max="7" inputmode="numeric" />
+
+        <label for="perfil-marca-km">Tu mejor marca reciente — distancia (km)</label>
+        <input type="number" id="perfil-marca-km" min="1" max="100" step="0.1" inputmode="decimal" />
+
+        <label for="perfil-marca-tiempo">…y en cuánto tiempo (mm:ss o h:mm:ss)</label>
+        <input type="text" id="perfil-marca-tiempo" placeholder="25:00" inputmode="numeric" />
+
+        <button type="submit">Guardar</button>
+        <p id="mensaje-perfil" class="mensaje" role="status" hidden></p>
+      </form>
+    </div>
+  </section>
 
   <script src="/app.js"></script>
 </body>

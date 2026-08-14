@@ -16,11 +16,11 @@ from app.container import Container, build_container
 from app.domain.models import Runner
 from app.domain.ports.email_port import EmailPort
 from app.domain.ports.llm_port import LLMPort
-from app.domain.ports.repositories import RunnerRepo, TokenAccesoRepo
+from app.domain.ports.repositories import PlanRepo, RunnerRepo, TokenAccesoRepo
 from app.domain.ports.stt_port import STTPort
 from app.domain.ports.tts_port import TTSPort
 from app.domain.ports.voz_realtime_port import VozRealtimePort
-from app.infrastructure.persistence.repos import SqlRunnerRepo, SqlTokenAccesoRepo
+from app.infrastructure.persistence.repos import SqlPlanRepo, SqlRunnerRepo, SqlTokenAccesoRepo
 
 COOKIE_NAME = "koda_session"
 
@@ -68,10 +68,15 @@ async def get_session(container: Container = Depends(get_container)) -> AsyncIte
 class Repos:
     runners: RunnerRepo
     tokens: TokenAccesoRepo
+    planes: PlanRepo
 
 
 def get_repos(session: AsyncSession = Depends(get_session)) -> Repos:
-    return Repos(runners=SqlRunnerRepo(session), tokens=SqlTokenAccesoRepo(session))
+    return Repos(
+        runners=SqlRunnerRepo(session),
+        tokens=SqlTokenAccesoRepo(session),
+        planes=SqlPlanRepo(session),
+    )
 
 
 def crear_jwt(runner_id: UUID, settings: Settings) -> str:

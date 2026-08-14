@@ -39,9 +39,11 @@ async def solicitar_enlace(
     en_limite_por_correo = (
         await tokens.contar_creados_desde(hace_una_hora, runner_id=runner.id)
     ) >= settings.rate_limit_magic_links_per_hour
-    en_limite_por_ip = ip is not None and (
-        await tokens.contar_creados_desde(hace_una_hora, ip_solicitud=ip)
-    ) >= settings.rate_limit_magic_links_per_hour_ip
+    en_limite_por_ip = (
+        ip is not None
+        and (await tokens.contar_creados_desde(hace_una_hora, ip_solicitud=ip))
+        >= settings.rate_limit_magic_links_per_hour_ip
+    )
 
     if en_limite_por_correo or en_limite_por_ip:
         return  # silencioso a proposito: no revela ni confirma ni delata el limite

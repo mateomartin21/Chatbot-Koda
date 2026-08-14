@@ -23,6 +23,23 @@ class Runner:
     marca_tiempo_seg: float | None = None
 
 
+@dataclass(frozen=True)
+class DatosPerfil:
+    """Los campos del perfil que el runner puede rellenar (por formulario o hablando).
+
+    Todo opcional a proposito: el perfil se completa a trozos, en varias conversaciones.
+    Un campo en None significa "no me lo has dicho todavia", nunca "borralo".
+    """
+
+    nombre: str | None = None
+    edad: int | None = None
+    nivel: str | None = None
+    dias_disponibles: int | None = None
+    zona_horaria: str | None = None
+    marca_distancia_km: float | None = None
+    marca_tiempo_seg: float | None = None
+
+
 @dataclass
 class TokenAcceso:
     """Token de un solo uso para el enlace magico. Se guarda el hash, nunca el token en claro."""
