@@ -2,10 +2,12 @@
 Segundo proveedor real (no solo segundo modelo) para el gateway de fallback —
 ver docs/adr/ADR-011-nova-sonic-y-gateway-de-modelos.md."""
 
+from collections.abc import Sequence
+
 import httpx
 
 from app.config import Settings
-from app.domain.ports.llm_port import LLMPort
+from app.domain.ports.llm_port import EjecutorHerramientas, Herramienta, LLMPort
 
 _URL = "https://api.groq.com/openai/v1/chat/completions"
 
@@ -17,7 +19,24 @@ class GroqLLM(LLMPort):
         self._api_key = settings.groq_api_key
         self._modelo = settings.groq_llm_model
 
-    async def conversar(self, mensaje_usuario: str, *, system_prompt: str) -> str:
+    # Este tier existe para que la conversacion no se caiga si AWS falla, no para
+    # generar planes. Declararlo asi hace que el gateway no le mande herramientas:
+    # ignorarlas en silencio seria peor, porque el modelo prometeria un plan que
+    # nadie ha creado.
+    @property
+    def soporta_herramientas(self) -> bool:
+        return False
+
+    async def conversar(
+        self,
+        mensaje_usuario: str,
+        *,
+        system_prompt: str,
+        herramientas: Sequence[Herramienta] = (),
+        ejecutar: EjecutorHerramientas | None = None,
+    ) -> str:
+        if herramientas:
+            raise NotImplementedError("GroqLLM no implementa tool use")
         async with httpx.AsyncClient(timeout=30.0) as client:
             respuesta = await client.post(
                 _URL,

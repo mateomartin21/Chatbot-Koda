@@ -7,9 +7,10 @@ infraestructura (boto3, httpx...) en una respuesta conversacional, sin acoplar l
 capa de aplicacion a tipos de excepcion concretos de un SDK.
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
-from app.domain.ports.llm_port import LLMPort
+from app.domain.ports.llm_port import EjecutorHerramientas, Herramienta, LLMPort
 from app.domain.ports.stt_port import STTPort
 from app.domain.ports.tts_port import TTSPort
 
@@ -32,6 +33,8 @@ async def procesar_mensaje(
     llm: LLMPort,
     tts: TTSPort,
     system_prompt: str,
+    herramientas: Sequence[Herramienta] = (),
+    ejecutar: EjecutorHerramientas | None = None,
 ) -> RespuestaCoach:
     if texto and texto.strip():
         texto_usuario = texto.strip()
@@ -46,7 +49,12 @@ async def procesar_mensaje(
             return RespuestaCoach(texto=_MENSAJE_NO_ESCUCHE, audio=None)
 
     try:
-        texto_respuesta = await llm.conversar(texto_usuario, system_prompt=system_prompt)
+        texto_respuesta = await llm.conversar(
+            texto_usuario,
+            system_prompt=system_prompt,
+            herramientas=herramientas,
+            ejecutar=ejecutar,
+        )
     except Exception:  # noqa: BLE001 — el LLM (ahora un gateway con fallback entre
         # proveedores, ver model_gateway.py) ya agoto sus propios tiers. Si llega aqui,
         # no queda mas que degradar a un mensaje amable.

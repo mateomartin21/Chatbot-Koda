@@ -16,7 +16,7 @@ import json
 import logging
 import time
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 
 from aws_sdk_bedrock_runtime.client import (
     AsyncBedrockRuntimeClient,
@@ -30,6 +30,7 @@ from aws_sdk_bedrock_runtime.models import (
 from smithy_aws_core.identity.environment import EnvironmentCredentialsResolver
 
 from app.config import Settings
+from app.domain.ports.llm_port import EjecutorHerramientas, Herramienta, LlamadaHerramienta
 from app.domain.ports.voz_realtime_port import (
     ErrorSesion,
     EventoVoz,
@@ -73,9 +74,17 @@ _PAUSA_SILENCIO_SEGUNDOS = 0.01
 
 
 class NovaSonicSesion(SesionVozRealtime):
-    def __init__(self, client: AsyncBedrockRuntimeClient, model_id: str) -> None:
+    def __init__(
+        self,
+        client: AsyncBedrockRuntimeClient,
+        model_id: str,
+        herramientas: Sequence[Herramienta] = (),
+        ejecutar: EjecutorHerramientas | None = None,
+    ) -> None:
         self._client = client
         self._model_id = model_id
+        self._herramientas = tuple(herramientas)
+        self._ejecutar = ejecutar
         self._prompt_name = str(uuid.uuid4())
         self._content_name_sistema = str(uuid.uuid4())
         self._content_name_audio = str(uuid.uuid4())
@@ -101,25 +110,38 @@ class NovaSonicSesion(SesionVozRealtime):
                 }
             }
         )
-        await self._enviar_evento(
-            {
-                "event": {
-                    "promptStart": {
-                        "promptName": self._prompt_name,
-                        "textOutputConfiguration": {"mediaType": "text/plain"},
-                        "audioOutputConfiguration": {
-                            "mediaType": "audio/lpcm",
-                            "sampleRateHertz": 24000,
-                            "sampleSizeBits": 16,
-                            "channelCount": 1,
-                            "voiceId": _VOZ,
-                            "encoding": "base64",
-                            "audioType": "SPEECH",
-                        },
+        prompt_start: dict = {
+            "promptName": self._prompt_name,
+            "textOutputConfiguration": {"mediaType": "text/plain"},
+            "audioOutputConfiguration": {
+                "mediaType": "audio/lpcm",
+                "sampleRateHertz": 24000,
+                "sampleSizeBits": 16,
+                "channelCount": 1,
+                "voiceId": _VOZ,
+                "encoding": "base64",
+                "audioType": "SPEECH",
+            },
+        }
+        if self._herramientas:
+            prompt_start["toolUseOutputConfiguration"] = {"mediaType": "application/json"}
+            prompt_start["toolConfiguration"] = {
+                "tools": [
+                    {
+                        "toolSpec": {
+                            "name": h.nombre,
+                            "description": h.descripcion,
+                            # OJO: aqui el esquema va como CADENA JSON, no como objeto.
+                            # En la Converse API del mismo Bedrock va como objeto
+                            # ({"json": {...}}). Mandarlo como objeto aqui hace que la
+                            # sesion se caiga al abrir, sin decir por que.
+                            "inputSchema": {"json": json.dumps(h.esquema)},
+                        }
                     }
-                }
+                    for h in self._herramientas
+                ]
             }
-        )
+        await self._enviar_evento({"event": {"promptStart": prompt_start}})
         await self._enviar_evento(
             {
                 "event": {
@@ -258,6 +280,63 @@ class NovaSonicSesion(SesionVozRealtime):
             {"event": {"contentEnd": {"promptName": self._prompt_name, "contentName": content_name}}}
         )
 
+    async def _atender_herramienta(self, peticion: dict) -> None:
+        """Ejecuta lo que el modelo pidio y le devuelve el resultado por el mismo stream.
+
+        El contenido llega como cadena JSON (mediaType application/json), no como objeto.
+        """
+        nombre = peticion.get("toolName", "")
+        tool_use_id = peticion.get("toolUseId", "")
+        crudo = peticion.get("content") or "{}"
+        try:
+            argumentos = json.loads(crudo) if isinstance(crudo, str) else dict(crudo)
+        except (json.JSONDecodeError, TypeError, ValueError):
+            argumentos = {}
+
+        if self._ejecutar is None:
+            resultado = f"No hay ninguna herramienta disponible ahora mismo ({nombre})."
+        else:
+            try:
+                resultado = await self._ejecutar(LlamadaHerramienta(nombre=nombre, argumentos=argumentos))
+            except Exception as error:  # noqa: BLE001 — degradar: el modelo lo cuenta y sigue
+                logger.warning("La herramienta %s fallo: %s", nombre, error, exc_info=True)
+                resultado = f"La herramienta {nombre} fallo. Dile al runner que lo intente otra vez."
+
+        logger.info("toolUse %s -> %d caracteres de resultado", nombre, len(resultado))
+        content_name = str(uuid.uuid4())
+        await self._enviar_evento(
+            {
+                "event": {
+                    "contentStart": {
+                        "promptName": self._prompt_name,
+                        "contentName": content_name,
+                        "interactive": False,
+                        "type": "TOOL",
+                        "role": "TOOL",
+                        "toolResultInputConfiguration": {
+                            "toolUseId": tool_use_id,
+                            "type": "TEXT",
+                            "textInputConfiguration": {"mediaType": "text/plain"},
+                        },
+                    }
+                }
+            }
+        )
+        await self._enviar_evento(
+            {
+                "event": {
+                    "toolResult": {
+                        "promptName": self._prompt_name,
+                        "contentName": content_name,
+                        "content": resultado,
+                    }
+                }
+            }
+        )
+        await self._enviar_evento(
+            {"event": {"contentEnd": {"promptName": self._prompt_name, "contentName": content_name}}}
+        )
+
     async def terminar_turno_audio(self) -> None:
         if not self._audio_iniciado:
             return
@@ -351,6 +430,12 @@ class NovaSonicSesion(SesionVozRealtime):
                     audio = base64.b64decode(evento["audioOutput"]["content"])
                     logger.debug("audioOutput %d bytes", len(audio))
                     yield FragmentoAudio(datos=audio)
+                elif "toolUse" in evento:
+                    # El turno NO ha terminado: el modelo esta esperando el resultado
+                    # para poder contestar. Si quedara un plazo de cierre corriendo, la
+                    # sesion se cortaria justo mientras se genera el plan.
+                    deadline_cierre = None
+                    await self._atender_herramienta(evento["toolUse"])
                 elif "contentEnd" in evento:
                     fin = evento["contentEnd"]
                     logger.info("contentEnd type=%s stopReason=%s", fin.get("type"), fin.get("stopReason"))
@@ -402,7 +487,13 @@ class NovaSonicRealtime(VozRealtimePort):
             self._client = AsyncBedrockRuntimeClient(config=config)
         return self._client
 
-    async def abrir_sesion(self, *, system_prompt: str) -> SesionVozRealtime:
-        sesion = NovaSonicSesion(self._cliente(), self._model_id)
+    async def abrir_sesion(
+        self,
+        *,
+        system_prompt: str,
+        herramientas: Sequence[Herramienta] = (),
+        ejecutar: EjecutorHerramientas | None = None,
+    ) -> SesionVozRealtime:
+        sesion = NovaSonicSesion(self._cliente(), self._model_id, herramientas, ejecutar)
         await sesion.abrir(system_prompt)
         return sesion

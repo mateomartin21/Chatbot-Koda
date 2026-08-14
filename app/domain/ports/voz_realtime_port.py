@@ -4,8 +4,10 @@ un flujo continuo con estado — de ahi la sesion en vez de un metodo unico.
 Ver docs/adr/ADR-011-nova-sonic-y-gateway-de-modelos.md."""
 
 from abc import ABC, abstractmethod
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
+
+from app.domain.ports.llm_port import EjecutorHerramientas, Herramienta
 
 
 @dataclass
@@ -62,4 +64,14 @@ class SesionVozRealtime(ABC):
 
 class VozRealtimePort(ABC):
     @abstractmethod
-    async def abrir_sesion(self, *, system_prompt: str) -> SesionVozRealtime: ...
+    async def abrir_sesion(
+        self,
+        *,
+        system_prompt: str,
+        herramientas: Sequence[Herramienta] = (),
+        ejecutar: EjecutorHerramientas | None = None,
+    ) -> SesionVozRealtime:
+        """Las herramientas se declaran al abrir la sesion, no por turno: en un flujo
+        bidireccional no hay un punto donde volver a negociarlas. La sesion las ejecuta
+        por dentro — quien consume eventos() no se entera de que hubo una llamada."""
+        ...

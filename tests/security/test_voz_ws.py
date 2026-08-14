@@ -103,6 +103,24 @@ def test_reenvia_transcripcion_y_audio_al_navegador():
         app.dependency_overrides.clear()
 
 
+def test_la_voz_recibe_las_mismas_herramientas_que_el_texto():
+    """Hablar y escribir tienen que dar el mismo Koda. Si el WebSocket abriera la sesion
+    sin herramientas, pedir un plan por voz solo produciria una promesa."""
+    from app.application.coach import HERRAMIENTAS
+
+    voz_fake = FakeVozRealtimePort(eventos_a_emitir=[TurnoTerminado()])
+    cliente = _preparar(voz_fake, con_cookie=True)
+    try:
+        with cliente.websocket_connect("/ws/voz") as ws:
+            ws.send_json({"tipo": "mensaje_texto", "texto": "hola"})
+            ws.receive_json()
+        assert voz_fake.herramientas_recibidas[0] == HERRAMIENTAS
+        # Y el prompt lleva el contexto que cambia en cada conversacion, no solo el .md
+        assert "Hoy es" in voz_fake.prompts_recibidos[0]
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_reenvia_el_adelanto_y_la_transcripcion_confirmada_marcados_distinto():
     """La interfaz muestra el adelanto enseguida y lo sustituye por la confirmada; para
     poder distinguirlos necesita la marca 'definitiva' — sin ella, en los turnos de voz

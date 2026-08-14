@@ -13,6 +13,7 @@ import logging
 
 from fastapi import APIRouter, Depends, WebSocket
 
+from app.application.coach import HERRAMIENTAS, ReposDelCoach, construir_system_prompt, ejecutor_para
 from app.config import Settings
 from app.domain.ports.voz_realtime_port import (
     ErrorSesion,
@@ -47,7 +48,7 @@ async def voz_realtime(
     system_prompt: str = Depends(get_coach_system_prompt),
 ) -> None:
     try:
-        await runner_desde_token(websocket.cookies.get(COOKIE_NAME), repos, settings)
+        runner = await runner_desde_token(websocket.cookies.get(COOKIE_NAME), repos, settings)
     except Exception:  # noqa: BLE001 — HTTPException de auth, traducida a cierre de socket
         await websocket.close(code=_CODIGO_CIERRE_NO_AUTENTICADO)
         return
@@ -55,7 +56,14 @@ async def voz_realtime(
     await websocket.accept()
 
     try:
-        sesion = await voz.abrir_sesion(system_prompt=system_prompt)
+        # Mismas herramientas y mismo contexto que POST /api/mensajes: hablar y escribir
+        # tienen que dar el mismo resultado, no dos Kodas distintos. El ejecutor queda
+        # atado al runner de la cookie durante toda la sesion.
+        sesion = await voz.abrir_sesion(
+            system_prompt=construir_system_prompt(system_prompt, runner),
+            herramientas=HERRAMIENTAS,
+            ejecutar=ejecutor_para(runner, ReposDelCoach(runners=repos.runners, planes=repos.planes)),
+        )
     except Exception:
         # Nova Sonic no disponible (ej. AccessDeniedException si el modelo no esta
         # habilitado en Bedrock -> Model access). El frontend cae a la cascada, pero esto

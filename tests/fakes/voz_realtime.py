@@ -1,8 +1,9 @@
 """Doble de VozRealtimePort. Sin red — ver docs/contexto/08-CONVENCIONES.md."""
 
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 
+from app.domain.ports.llm_port import EjecutorHerramientas, Herramienta
 from app.domain.ports.voz_realtime_port import EventoVoz, SesionVozRealtime, VozRealtimePort
 
 
@@ -41,10 +42,20 @@ class FakeVozRealtimePort(VozRealtimePort):
         self.falla_al_abrir = False
         self.eventos_a_emitir = eventos_a_emitir or []
         self.sesiones_abiertas: list[FakeSesionVozRealtime] = []
+        self.prompts_recibidos: list[str] = []
+        self.herramientas_recibidas: list[tuple[Herramienta, ...]] = []
 
-    async def abrir_sesion(self, *, system_prompt: str) -> FakeSesionVozRealtime:
+    async def abrir_sesion(
+        self,
+        *,
+        system_prompt: str,
+        herramientas: Sequence[Herramienta] = (),
+        ejecutar: EjecutorHerramientas | None = None,
+    ) -> FakeSesionVozRealtime:
         if self.falla_al_abrir:
             raise RuntimeError("Nova Sonic no disponible")
+        self.prompts_recibidos.append(system_prompt)
+        self.herramientas_recibidas.append(tuple(herramientas))
         sesion = FakeSesionVozRealtime(self.eventos_a_emitir)
         self.sesiones_abiertas.append(sesion)
         return sesion
