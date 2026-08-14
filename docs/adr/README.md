@@ -43,3 +43,4 @@ Las negativas son obligatorias. Un ADR sin consecuencias negativas es publicidad
 | [010](ADR-010-sin-dominio-propio-para-ses.md) | Sin dominio propio para SES — se acepta el riesgo de spam | Aceptado |
 | [011](ADR-011-nova-sonic-y-gateway-de-modelos.md) | Voz en tiempo real con Nova Sonic y gateway de modelos con fallback | Aceptado |
 | [012](ADR-012-tensiones-entre-reglas-de-entrenamiento.md) | Cómo se resuelven las contradicciones entre las reglas R1–R8 | Aceptado |
+| [013](ADR-013-prompt-propio-para-el-modelo-de-voz.md) | Un prompt propio para el modelo de voz, y herramientas donde el fallo no cabe | Aceptado |

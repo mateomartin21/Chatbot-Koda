@@ -104,7 +104,7 @@ docs/{contexto,adr}/
 
 | ADR | Decisión |
 |---|---|
-| [001](docs/adr/ADR-001-pipeline-cascada.md) | Pipeline en cascada en lugar de speech-to-speech en tiempo real |
+| [001](docs/adr/ADR-001-pipeline-cascada.md) | Pipeline en cascada en lugar de speech-to-speech — *superseded por [011](docs/adr/ADR-011-nova-sonic-y-gateway-de-modelos.md)* |
 | [002](docs/adr/ADR-002-python-fastapi.md) | Python + FastAPI, frontend sin framework |
 | [003](docs/adr/ADR-003-arquitectura-hexagonal.md) | Arquitectura hexagonal para aislar proveedores de IA |
 | [004](docs/adr/ADR-004-aws-servicios-gestionados.md) | Servicios gestionados de AWS |
@@ -112,6 +112,11 @@ docs/{contexto,adr}/
 | [006](docs/adr/ADR-006-dominio-determinista.md) | Reglas de entrenamiento deterministas |
 | [007](docs/adr/ADR-007-auth-enlace-magico.md) | Autenticación por enlace mágico |
 | [008](docs/adr/ADR-008-entradas-multimodales.md) | Entradas multimodales |
+| [009](docs/adr/ADR-009-groq-stt-temporal.md) | Groq Whisper como STT temporal |
+| [010](docs/adr/ADR-010-sin-dominio-propio-para-ses.md) | Sin dominio propio para SES — se acepta el riesgo de spam |
+| [011](docs/adr/ADR-011-nova-sonic-y-gateway-de-modelos.md) | Voz en tiempo real con Nova Sonic y gateway de modelos con fallback |
+| [012](docs/adr/ADR-012-tensiones-entre-reglas-de-entrenamiento.md) | Cómo se resuelven las contradicciones entre las reglas R1–R8 |
+| [013](docs/adr/ADR-013-prompt-propio-para-el-modelo-de-voz.md) | Un prompt propio para el modelo de voz, y herramientas donde el fallo no cabe |
 
 Cada ADR incluye sus **consecuencias negativas**. Un ADR sin ellas es publicidad, no ingeniería.
 
@@ -139,10 +144,17 @@ Detalles en [`docs/contexto/03-MULTIUSUARIO-Y-SEGURIDAD.md`](docs/contexto/03-MU
 
 Fuera del alcance de esta entrega, con la solución identificada:
 
+- **Editar el plan sin regenerarlo.** Hoy pedir otro plan reemplaza al anterior: no se
+  puede mover una sesión ni decir "esta semana viajo". Es una decisión, no un olvido —
+  un plan es el resultado de un cálculo completo, y dejarlo editar suelto abre la puerta
+  a planes que ya no cumplen R1–R8. La forma correcta es una herramienta `ajustar_plan`
+  que **vuelva a pasar por el dominio**, no un editor de sesiones.
+- **Barge-in**: interrumpir a Koda mientras habla. Nova Sonic lo soporta; el cliente no.
 - **Recuperación semántica de memoria** con embeddings y `pgvector`, cuando los hechos por usuario crezcan
-- **Streaming de respuesta** token a token + síntesis por frases, para bajar la latencia percibida a ~1,5 s
+- **Higiene de memoria por caducidad**: hoy los hechos se deduplican y se pueden marcar no
+  vigentes, pero nada caduca solo. Una lesión de hace ocho meses no debería condicionar el
+  plan de hoy ([05-MEMORIA §4.3](docs/contexto/05-MEMORIA.md))
 - **Análisis de técnica de carrera** por vídeo, mediante extracción de fotogramas
-- **Speech-to-speech en tiempo real** con Amazon Nova 2 Sonic, para conversación con interrupciones
 - **Integración con Strava y Garmin**, sustituyendo el registro por foto
 - **EventBridge Scheduler + Lambda** en lugar de APScheduler, si escalara a miles de usuarios
 
