@@ -2,108 +2,260 @@
 <html lang="es">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#090d18" />
+  <meta name="description" content="Koda: entrenador de running conversacional. Le hablas, te arma el plan y se acuerda de lo que le cuentas." />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta property="og:title" content="Koda — entrenador de running por voz" />
+  <meta property="og:description" content="Le hablas desde el móvil, te genera un plan real para tu carrera y te escribe cada mañana." />
+  <meta property="og:type" content="website" />
   <title>Koda — entrenador de running</title>
+
+  <!-- La tipografia se precarga: llega antes que la hoja de estilos la pida, y el
+       texto no baila al cambiar de la de sistema a la real. -->
+  <link rel="preload" href="/fuentes/archivo-variable-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="/styles.css" />
+  <link rel="icon" href="/icono.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/icono.svg" />
 </head>
 <body>
+  <!-- ===================== Entrar ===================== -->
   <main id="pantalla-login" class="pantalla-login" hidden>
-    <h1>🐺 Koda</h1>
-    <p class="subtitulo">Tu entrenador de running por voz</p>
+    <div class="fondo-decorativo" aria-hidden="true"></div>
 
-    <form id="form-solicitar">
-      <label for="email">Correo electrónico</label>
-      <input type="email" id="email" name="email" required autocomplete="email" placeholder="tu@correo.com" />
-      <button type="submit">Entrar</button>
-    </form>
+    <div class="tarjeta-login">
+      <span class="marca marca-xl">
+        <svg aria-hidden="true"><use href="/iconos.svg#i-koda" /></svg>
+      </span>
+      <h1>Koda</h1>
+      <p class="subtitulo">Tu entrenador de running. Háblale como a una persona.</p>
 
-    <p id="mensaje-login" class="mensaje" role="status" hidden></p>
-  </main>
-
-  <main id="pantalla-chat" class="pantalla-chat" hidden>
-    <header class="cabecera-chat">
-      <button type="button" id="boton-perfil" class="boton-icono" aria-label="Mi perfil">⚙️</button>
-      <span>🐺 Koda</span>
-      <button type="button" id="boton-plan" class="boton-icono" aria-label="Mi plan">📋</button>
-    </header>
-
-    <div id="burbujas" class="burbujas" aria-live="polite"></div>
-
-    <form id="form-mensaje" class="form-mensaje">
-      <input
-        type="text"
-        id="texto"
-        placeholder="Escribe o mándame un audio…"
-        autocomplete="off"
-      />
-      <button type="button" id="boton-mic" aria-label="Grabar mensaje de voz">🎙️</button>
-      <button type="submit" aria-label="Enviar">➤</button>
-    </form>
-
-    <audio id="reproductor" hidden></audio>
-  </main>
-
-  <!-- Los dos paneles viven fuera del chat y se superponen: en movil no hay sitio
-       para nada al lado, y el chat sigue siendo la pantalla principal. -->
-  <section id="panel-plan" class="panel" hidden aria-labelledby="titulo-plan">
-    <header class="cabecera-panel">
-      <h2 id="titulo-plan">Mi plan</h2>
-      <button type="button" class="boton-icono cerrar-panel" aria-label="Cerrar">✕</button>
-    </header>
-    <div id="contenido-plan" class="contenido-panel" aria-live="polite"></div>
-  </section>
-
-  <section id="panel-perfil" class="panel" hidden aria-labelledby="titulo-perfil">
-    <header class="cabecera-panel">
-      <h2 id="titulo-perfil">Mi perfil</h2>
-      <button type="button" class="boton-icono cerrar-panel" aria-label="Cerrar">✕</button>
-    </header>
-    <div class="contenido-panel">
-      <p class="mensaje">
-        Cuanto más sepa de ti, mejor te ajusto los ritmos. También puedes contármelo hablando.
-      </p>
-      <p id="intro-perfil" class="mensaje" hidden>
-        Antes de empezar, cuéntame de ti. Sin una marca reciente tus ritmos son solo una
-        estimación — y de ahí sale todo tu plan.
-      </p>
-      <form id="form-perfil">
-        <label for="perfil-nombre">Cómo te llamo</label>
-        <input type="text" id="perfil-nombre" autocomplete="given-name" />
-
-        <label for="perfil-edad">Edad</label>
-        <input type="number" id="perfil-edad" min="10" max="100" inputmode="numeric" />
-
-        <label for="perfil-nivel">Nivel</label>
-        <select id="perfil-nivel">
-          <option value="">Prefiero no decirlo</option>
-          <option value="principiante">Principiante</option>
-          <option value="intermedio">Intermedio</option>
-          <option value="avanzado">Avanzado</option>
-        </select>
-
-        <label for="perfil-dias">Días que puedes correr por semana</label>
-        <input type="number" id="perfil-dias" min="2" max="7" inputmode="numeric" />
-
-        <label for="perfil-marca-km">Tu mejor marca reciente — distancia (km)</label>
-        <input type="number" id="perfil-marca-km" min="1" max="100" step="0.1" inputmode="decimal" />
-
-        <label for="perfil-marca-tiempo">…y en cuánto tiempo (mm:ss o h:mm:ss)</label>
-        <input type="text" id="perfil-marca-tiempo" placeholder="25:00" inputmode="numeric" />
-
-        <button type="submit">Guardar</button>
-        <button type="button" id="saltar-perfil" class="boton-secundario" hidden>
-          Lo hago después
+      <form id="form-solicitar" novalidate>
+        <div>
+          <label for="email">Correo electrónico</label>
+          <div class="campo">
+            <svg class="icono-campo" aria-hidden="true"><use href="/iconos.svg#i-correo" /></svg>
+            <input type="email" id="email" name="email" required autocomplete="email"
+                   placeholder="tu@correo.com" enterkeyhint="go" />
+          </div>
+        </div>
+        <button type="submit" class="boton boton-primario">
+          <span class="texto-boton">Entrar</span>
+          <span class="cargador" aria-hidden="true"></span>
         </button>
-        <p id="mensaje-perfil" class="mensaje" role="status" hidden></p>
       </form>
 
-      <section id="seccion-avisos" class="avisos" hidden>
-        <h3>Recordatorios por correo</h3>
-        <p class="mensaje">
-          Van a la hora que marques, en tu horario. Si un día no toca entrenar, no te escribo.
+      <p id="mensaje-login" class="nota" role="status" hidden></p>
+      <p class="letra-chica">
+        Sin contraseñas. Te mandamos un enlace de un solo uso que caduca en 15 minutos.
+      </p>
+    </div>
+  </main>
+
+  <!-- ===================== La app ===================== -->
+  <div id="pantalla-chat" class="app" hidden>
+    <!-- Barra lateral: solo en pantallas anchas. En el móvil sus acciones viven en
+         la cabecera, que es donde llega el pulgar. -->
+    <nav class="rail" aria-label="Secciones">
+      <span class="marca marca-md" aria-hidden="true">
+        <svg><use href="/iconos.svg#i-koda" /></svg>
+      </span>
+      <button type="button" class="boton-rail" data-abre="panel-plan">
+        <svg aria-hidden="true"><use href="/iconos.svg#i-plan" /></svg>
+        <span>Mi plan</span>
+      </button>
+      <button type="button" class="boton-rail" data-abre="panel-perfil">
+        <svg aria-hidden="true"><use href="/iconos.svg#i-perfil" /></svg>
+        <span>Mi perfil</span>
+      </button>
+    </nav>
+
+    <main class="chat">
+      <header class="cabecera-chat">
+        <span class="marca marca-sm" aria-hidden="true">
+          <svg><use href="/iconos.svg#i-koda" /></svg>
+        </span>
+        <div class="identidad">
+          <strong>Koda</strong>
+          <span id="estado-koda" class="estado">Entrenador de running</span>
+        </div>
+        <div class="acciones-cabecera">
+          <button type="button" class="boton-icono solo-movil" data-abre="panel-plan" aria-label="Mi plan">
+            <svg aria-hidden="true"><use href="/iconos.svg#i-plan" /></svg>
+          </button>
+          <button type="button" class="boton-icono solo-movil" data-abre="panel-perfil" aria-label="Mi perfil">
+            <svg aria-hidden="true"><use href="/iconos.svg#i-perfil" /></svg>
+          </button>
+        </div>
+      </header>
+
+      <div id="burbujas" class="burbujas" role="log" aria-live="polite" aria-label="Conversación">
+        <section id="bienvenida" class="bienvenida">
+          <span class="marca marca-lg" aria-hidden="true">
+            <svg><use href="/iconos.svg#i-koda" /></svg>
+          </span>
+          <h2>Hola, soy Koda</h2>
+          <p>
+            Dime qué carrera quieres correr y para cuándo. Te armo el plan, te calculo
+            los ritmos y me acuerdo de lo que me cuentes.
+          </p>
+          <div class="sugerencias">
+            <button type="button" class="chip" data-sugerencia="Quiero correr un 10K en noviembre">
+              <svg aria-hidden="true"><use href="/iconos.svg#i-meta" /></svg>
+              Quiero correr un 10K
+            </button>
+            <button type="button" class="chip" data-sugerencia="¿Qué me toca entrenar hoy?">
+              <svg aria-hidden="true"><use href="/iconos.svg#i-rayo" /></svg>
+              Qué me toca hoy
+            </button>
+            <button type="button" class="chip" data-sugerencia="Me molesta la rodilla desde el domingo">
+              <svg aria-hidden="true"><use href="/iconos.svg#i-alerta" /></svg>
+              Me molesta la rodilla
+            </button>
+          </div>
+        </section>
+      </div>
+
+      <form id="form-mensaje" class="compositor">
+        <div class="caja-compositor">
+          <input type="text" id="texto" placeholder="Escribe o toca el micro"
+                 autocomplete="off" enterkeyhint="send" />
+          <button type="button" id="boton-mic" class="boton-mic" aria-label="Grabar mensaje de voz">
+            <svg class="icono-micro" aria-hidden="true"><use href="/iconos.svg#i-micro" /></svg>
+            <svg class="icono-parar" aria-hidden="true"><use href="/iconos.svg#i-parar" /></svg>
+          </button>
+          <button type="submit" id="boton-enviar" class="boton-enviar" aria-label="Enviar mensaje">
+            <svg aria-hidden="true"><use href="/iconos.svg#i-enviar" /></svg>
+          </button>
+        </div>
+
+        <!-- Sustituye a la caja de texto mientras se graba. El nivel de las barras es
+             el volumen real del micrófono, no una animación decorativa: si no se
+             mueven, no te está oyendo — y eso se ve antes de mandar el audio. -->
+        <div id="barra-grabacion" class="barra-grabacion" hidden>
+          <span class="punto-rec" aria-hidden="true"></span>
+          <span class="etiqueta-rec">Te escucho</span>
+          <div id="ondas" class="ondas" aria-hidden="true"></div>
+          <span id="cronometro" class="cronometro">0:00</span>
+          <button type="button" id="boton-parar" class="boton-mic" aria-label="Terminar y enviar">
+            <svg class="icono-parar" aria-hidden="true"><use href="/iconos.svg#i-parar" /></svg>
+          </button>
+        </div>
+      </form>
+    </main>
+
+    <!-- El plan vive dentro de la app porque a partir de 1200px deja de ser un cajón
+         que tapa y pasa a ser una columna fija al lado de la conversación. -->
+    <section id="panel-plan" class="panel" hidden aria-labelledby="titulo-plan">
+      <header class="cabecera-panel">
+        <h2 id="titulo-plan">
+          <svg aria-hidden="true"><use href="/iconos.svg#i-plan" /></svg>
+          Mi plan
+        </h2>
+        <button type="button" class="boton-icono cerrar-panel" aria-label="Cerrar">
+          <svg aria-hidden="true"><use href="/iconos.svg#i-cerrar" /></svg>
+        </button>
+      </header>
+      <div id="contenido-plan" class="contenido-panel" aria-live="polite"></div>
+    </section>
+  </div>
+
+  <div id="velo" class="velo" hidden></div>
+
+  <!-- ===================== Perfil ===================== -->
+  <section id="panel-perfil" class="panel" hidden aria-labelledby="titulo-perfil" role="dialog" aria-modal="true">
+    <header class="cabecera-panel">
+      <h2 id="titulo-perfil">
+        <svg aria-hidden="true"><use href="/iconos.svg#i-perfil" /></svg>
+        Mi perfil
+      </h2>
+      <button type="button" class="boton-icono cerrar-panel" aria-label="Cerrar">
+        <svg aria-hidden="true"><use href="/iconos.svg#i-cerrar" /></svg>
+      </button>
+    </header>
+
+    <div class="contenido-panel">
+      <p class="nota">
+        Cuanto más sepa de ti, mejor te ajusto los ritmos. También puedes contármelo hablando.
+      </p>
+      <p id="intro-perfil" class="nota-destacada" hidden>
+        <svg aria-hidden="true"><use href="/iconos.svg#i-info" /></svg>
+        <span>
+          Antes de empezar, cuéntame de ti. Sin una marca reciente tus ritmos son solo una
+          estimación, y de ahí sale todo tu plan.
+        </span>
+      </p>
+
+      <form id="form-perfil">
+        <div>
+          <label for="perfil-nombre">Cómo te llamo</label>
+          <input type="text" id="perfil-nombre" autocomplete="given-name" placeholder="Mateo" />
+        </div>
+
+        <div class="fila-campos">
+          <div>
+            <label for="perfil-edad">Edad</label>
+            <input type="number" id="perfil-edad" min="10" max="100" inputmode="numeric" placeholder="30" />
+          </div>
+          <div>
+            <label for="perfil-dias">Días por semana</label>
+            <input type="number" id="perfil-dias" min="2" max="7" inputmode="numeric" placeholder="4" />
+          </div>
+        </div>
+
+        <div>
+          <label for="perfil-nivel">Nivel</label>
+          <div class="campo campo-select">
+            <select id="perfil-nivel">
+              <option value="">Prefiero no decirlo</option>
+              <option value="principiante">Principiante</option>
+              <option value="intermedio">Intermedio</option>
+              <option value="avanzado">Avanzado</option>
+            </select>
+            <svg class="icono-select" aria-hidden="true"><use href="/iconos.svg#i-caret" /></svg>
+          </div>
+        </div>
+
+        <fieldset class="marca-reciente">
+          <legend>Tu mejor marca reciente</legend>
+          <p class="letra-chica">De aquí salen todos tus ritmos. Sin ella van estimados.</p>
+          <div class="fila-campos">
+            <div>
+              <label for="perfil-marca-km">Distancia (km)</label>
+              <input type="number" id="perfil-marca-km" min="1" max="100" step="0.1"
+                     inputmode="decimal" placeholder="10" />
+            </div>
+            <div>
+              <label for="perfil-marca-tiempo">Tiempo</label>
+              <input type="text" id="perfil-marca-tiempo" placeholder="52:30" inputmode="numeric" />
+            </div>
+          </div>
+        </fieldset>
+
+        <div class="acciones-form">
+          <button type="submit" class="boton boton-primario">
+            <span class="texto-boton">Guardar</span>
+            <span class="cargador" aria-hidden="true"></span>
+          </button>
+          <button type="button" id="saltar-perfil" class="boton boton-secundario" hidden>
+            Lo hago después
+          </button>
+        </div>
+        <p id="mensaje-perfil" class="nota" role="status" hidden></p>
+      </form>
+
+      <section id="seccion-avisos" class="bloque-avisos" hidden>
+        <h3>
+          <svg aria-hidden="true"><use href="/iconos.svg#i-campana" /></svg>
+          Recordatorios por correo
+        </h3>
+        <p class="letra-chica">
+          Llegan a la hora que marques, en tu horario. Si un día no toca entrenar, no te escribo.
         </p>
         <div id="lista-avisos"></div>
-        <p id="mensaje-avisos" class="mensaje" role="status" hidden></p>
+        <p id="mensaje-avisos" class="nota" role="status" hidden></p>
       </section>
     </div>
   </section>

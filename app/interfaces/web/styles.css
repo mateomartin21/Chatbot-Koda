@@ -1,392 +1,1906 @@
-:root {
-  --color-fondo: #0f1115;
-  --color-texto: #f2f2f2;
-  --color-texto-tenue: #a3a8b3;
-  --color-acento: #ff6a3d;
-  --color-borde: #2a2d35;
-  --espacio-sm: 0.5rem;
-  --espacio-md: 1rem;
-  --espacio-lg: 2rem;
-  --radio: 12px;
+/* =============================================================================
+   Koda — hoja de estilos
+
+   Direccion de diseno: "la hora azul". Casi todo el mundo entrena antes del
+   amanecer o de noche, asi que el fondo no es un gris de editor de codigo: es el
+   indigo del cielo justo antes de que salga el sol, y el acento es esa primera
+   luz calida. Los dos colores significan algo del mundo del runner en vez de ser
+   "oscuro + naranja".
+
+   Tipografia: Archivo (variable, con eje de anchura) para todo lo que se lee, y
+   DM Mono para lo que se mide — ritmos, tiempos, distancias, fechas. Un dato
+   nunca va en la misma letra que una frase: se lee de un vistazo, se alinea en
+   columna y no baila cuando cambia el numero.
+
+   Movimiento: solo donde tiene un porque. Ver docs/adr/ADR-015.
+   ============================================================================= */
+
+/* --- Tipografias vendorizadas (ver licencias/) ------------------------------ */
+
+@font-face {
+  font-family: "Archivo";
+  src: url("/fuentes/archivo-variable-latin.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+  font-style: normal;
+  font-display: swap;
 }
 
-* {
+@font-face {
+  font-family: "DM Mono";
+  src: url("/fuentes/dm-mono-400-latin.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "DM Mono";
+  src: url("/fuentes/dm-mono-500-latin.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* --- Tokens ----------------------------------------------------------------- */
+
+:root {
+  /* Color */
+  --noche: #090d18;
+  --nocturno: #101625;
+  --elevado: #171f33;
+  --linea: #232d47;
+  --linea-tenue: #1a2237;
+  --tiza: #e9edf7;
+  --bruma: #838fae;
+  --bruma-honda: #5a6584;
+
+  --amanecer: #fb7a46;
+  --amanecer-hondo: #ef6a34;
+  --alba: #ffc46b;
+  --brasa: rgba(251, 122, 70, 0.14);
+
+  /* Semantica de entrenamiento: son los colores con los que se pintan las zonas
+     en cualquier grafica de running, no una paleta decorativa. */
+  --suave: #4fd1a5;
+  --largo: #6ca8ff;
+  --alerta: #ff6b84;
+
+  /* Sombras tenidas con el azul del fondo, nunca negro puro */
+  --sombra-1: 0 1px 2px rgba(4, 7, 14, 0.5);
+  --sombra-2: 0 10px 30px -12px rgba(4, 7, 14, 0.8);
+  --sombra-3: 0 30px 70px -24px rgba(4, 7, 14, 0.9);
+
+  /* Radios: mas cerrados por dentro, mas abiertos por fuera */
+  --r-xs: 6px;
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 22px;
+  --r-full: 999px;
+
+  /* Espacio, base 4 */
+  --e-1: 0.25rem;
+  --e-2: 0.5rem;
+  --e-3: 0.75rem;
+  --e-4: 1rem;
+  --e-5: 1.5rem;
+  --e-6: 2rem;
+  --e-7: 3rem;
+
+  /* Tipografia */
+  --cuerpo: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --dato: "DM Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* Curvas: las de easing.dev que usa Emil Kowalski. Las de serie del navegador
+     son demasiado flojas y hacen que todo parezca dudar. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* Capas */
+  --z-compositor: 10;
+  --z-velo: 30;
+  --z-panel: 40;
+  --z-grano: 60;
+
+  --ancho-hilo: 780px;
+}
+
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
-/* Las pantallas y los paneles se ocultan con el atributo [hidden], pero todos llevan
-   display:flex/grid — y una regla de autor con display gana al [hidden] del navegador.
-   Sin este !important, el panel se abre y ya no hay forma de cerrarlo. */
+/* Las pantallas y los paneles se ocultan con [hidden], pero llevan display:flex
+   o grid — y una regla de autor con display gana al [hidden] del navegador. Sin
+   este !important, el panel se abre y ya no hay forma de cerrarlo. */
 [hidden] {
   display: none !important;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   margin: 0;
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-fondo);
-  color: var(--color-texto);
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-  padding: var(--espacio-md);
+  min-height: 100dvh;
+  background: var(--noche);
+  color: var(--tiza);
+  font-family: var(--cuerpo);
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-.pantalla-login {
-  width: 100%;
-  max-width: 360px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--espacio-md);
-  text-align: center;
+/* Grano fijo sobre todo. Sin el, las superficies planas se ven sinteticas; con el
+   tienen la textura de una foto con poca luz, que es la hora que representa. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-grano);
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-h1 {
+::selection {
+  background: var(--brasa);
+  color: var(--tiza);
+}
+
+:focus-visible {
+  outline: 2px solid var(--amanecer);
+  outline-offset: 2px;
+  border-radius: var(--r-xs);
+}
+
+/* --- Elementos base --------------------------------------------------------- */
+
+h1,
+h2,
+h3 {
   margin: 0;
-  font-size: 2rem;
+  font-stretch: 112%;
+  font-weight: 750;
+  letter-spacing: -0.022em;
+  line-height: 1.12;
+  text-wrap: balance;
 }
 
-.subtitulo {
+p {
   margin: 0;
-  color: var(--color-texto-tenue);
+  text-wrap: pretty;
 }
 
-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--espacio-sm);
-  margin-top: var(--espacio-md);
-}
-
-label {
-  text-align: left;
-  font-size: 0.9rem;
-  color: var(--color-texto-tenue);
-}
-
-input {
-  min-height: 44px;
-  padding: 0 var(--espacio-md);
-  border-radius: var(--radio);
-  border: 1px solid var(--color-borde);
-  background: #171a20;
-  color: var(--color-texto);
-  font-size: 1rem;
+svg {
+  width: 1.25em;
+  height: 1.25em;
+  flex-shrink: 0;
+  display: block;
 }
 
 button {
-  min-height: 44px;
+  font: inherit;
+  color: inherit;
   border: none;
-  border-radius: var(--radio);
-  background: var(--color-acento);
-  color: #111;
-  font-size: 1rem;
-  font-weight: 600;
+  background: none;
   cursor: pointer;
+  transition: transform 160ms var(--ease-out);
+}
+
+button:active:not(:disabled) {
+  transform: scale(0.97);
 }
 
 button:disabled {
-  opacity: 0.6;
   cursor: default;
+  opacity: 0.5;
 }
 
-.mensaje {
-  color: var(--color-texto-tenue);
-  font-size: 0.9rem;
-}
-
-/* --- Chat --- */
-
-.pantalla-chat {
+input,
+select {
+  font: inherit;
+  color: var(--tiza);
   width: 100%;
-  max-width: 480px;
-  height: 100vh;
-  height: 100dvh;
+  min-height: 46px;
+  padding: 0 var(--e-3);
+  border: 1px solid var(--linea);
+  border-radius: var(--r-sm);
+  background: var(--noche);
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+input::placeholder {
+  color: var(--bruma-honda);
+}
+
+input:focus,
+select:focus {
+  outline: none;
+  border-color: var(--amanecer);
+  box-shadow: 0 0 0 3px var(--brasa);
+}
+
+input[type="number"] {
+  font-family: var(--dato);
+  font-variant-numeric: tabular-nums;
+}
+
+label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--bruma);
+  margin-bottom: var(--e-1);
+}
+
+.letra-chica {
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--bruma-honda);
+}
+
+.nota {
+  font-size: 0.8125rem;
+  color: var(--bruma);
+}
+
+.nota-destacada {
+  display: flex;
+  gap: var(--e-2);
+  align-items: flex-start;
+  padding: var(--e-3);
+  border-radius: var(--r-sm);
+  border-left: 2px solid var(--amanecer);
+  background: var(--elevado);
+  color: var(--tiza);
+}
+
+.nota-destacada svg {
+  color: var(--amanecer);
+  margin-top: 1px;
+}
+
+/* Cualquier medida — ritmo, distancia, tiempo, fecha. */
+.dato {
+  font-family: var(--dato);
+  font-size: 0.94em;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  word-spacing: -0.14em;
+}
+
+.eyebrow {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--bruma-honda);
+}
+
+/* --- Botones ---------------------------------------------------------------- */
+
+.boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--e-2);
+  min-height: 46px;
+  padding: 0 var(--e-5);
+  border-radius: var(--r-sm);
+  font-weight: 600;
+  font-size: 0.9375rem;
+  position: relative;
+  transition:
+    transform 160ms var(--ease-out),
+    filter 160ms ease;
+}
+
+.boton-primario {
+  background: linear-gradient(165deg, #ff9053, var(--amanecer-hondo));
+  color: #1a0b03;
+  box-shadow: var(--sombra-1);
+}
+
+.boton-secundario {
+  border: 1px solid var(--linea);
+  color: var(--bruma);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .boton-primario:hover {
+    filter: brightness(1.08);
+  }
+
+  .boton-secundario:hover {
+    color: var(--tiza);
+    border-color: var(--bruma-honda);
+  }
+}
+
+/* Estado de carga: el texto se difumina en vez de desaparecer. Sin el blur se ven
+   dos objetos distintos cruzandose; con el, el ojo lee una sola transformacion. */
+.boton .cargador {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--r-full);
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  opacity: 0;
+  animation: girar 700ms linear infinite;
+}
+
+.boton .texto-boton {
+  transition:
+    filter 200ms ease,
+    opacity 200ms ease;
+}
+
+.boton[data-cargando="si"] .texto-boton {
+  filter: blur(3px);
+  opacity: 0;
+}
+
+.boton[data-cargando="si"] .cargador {
+  opacity: 1;
+}
+
+@keyframes girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.boton-icono {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-sm);
+  color: var(--bruma);
+  transition:
+    transform 160ms var(--ease-out),
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.boton-icono svg {
+  width: 21px;
+  height: 21px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .boton-icono:hover {
+    color: var(--tiza);
+    background: var(--elevado);
+  }
+}
+
+/* --- La marca --------------------------------------------------------------- */
+
+.marca {
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-md);
+  background: linear-gradient(150deg, var(--alba), var(--amanecer-hondo));
+  color: #12080a;
+  box-shadow: var(--sombra-1);
+  flex-shrink: 0;
+}
+
+.marca svg {
+  width: 66%;
+  height: 66%;
+}
+
+.marca-sm {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--r-sm);
+}
+.marca-md {
+  width: 42px;
+  height: 42px;
+}
+.marca-lg {
+  width: 58px;
+  height: 58px;
+  border-radius: var(--r-lg);
+}
+.marca-xl {
+  width: 72px;
+  height: 72px;
+  border-radius: var(--r-lg);
+}
+
+/* =============================================================================
+   Entrar
+   ============================================================================= */
+
+.pantalla-login {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: var(--e-5) var(--e-4);
+  position: relative;
+  overflow: hidden;
+}
+
+/* El sol que todavia no ha salido: una sola fuente de luz calida abajo a la
+   derecha, que es de donde vienen todas las sombras de la interfaz. */
+.fondo-decorativo {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(60rem 40rem at 85% 110%, rgba(251, 122, 70, 0.16), transparent 62%),
+    radial-gradient(40rem 30rem at 10% -10%, rgba(108, 168, 255, 0.07), transparent 60%);
+}
+
+.tarjeta-login {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
   display: flex;
   flex-direction: column;
-  padding: var(--espacio-sm) 0;
+  align-items: flex-start;
+  gap: var(--e-3);
+}
+
+.tarjeta-login h1 {
+  font-size: clamp(2.75rem, 12vw, 3.5rem);
+  font-stretch: 118%;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  margin-top: var(--e-3);
+}
+
+.tarjeta-login .subtitulo {
+  color: var(--bruma);
+  font-size: 1.0625rem;
+  max-width: 22ch;
+}
+
+#form-solicitar {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-3);
+  margin-top: var(--e-4);
+}
+
+.campo {
+  position: relative;
+}
+
+.campo .icono-campo {
+  position: absolute;
+  left: var(--e-3);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 19px;
+  height: 19px;
+  color: var(--bruma-honda);
+  pointer-events: none;
+  transition: color 160ms ease;
+}
+
+.campo:focus-within .icono-campo {
+  color: var(--amanecer);
+}
+
+.campo input {
+  padding-left: calc(var(--e-3) * 2 + 19px);
+}
+
+/* =============================================================================
+   Armazon de la app
+   ============================================================================= */
+
+.app {
+  display: grid;
+  grid-template-columns: 1fr;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.rail {
+  display: none;
+}
+
+.chat {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  position: relative;
 }
 
 .cabecera-chat {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  text-align: center;
-  font-size: 1.25rem;
-  font-weight: 600;
-  padding: 0 var(--espacio-sm) var(--espacio-sm);
-  border-bottom: 1px solid var(--color-borde);
+  gap: var(--e-3);
+  padding: var(--e-3) var(--e-4);
+  padding-top: max(var(--e-3), env(safe-area-inset-top));
+  border-bottom: 1px solid var(--linea-tenue);
+  background: rgba(9, 13, 24, 0.82);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  z-index: 2;
 }
 
-.boton-icono {
-  min-height: 36px;
-  min-width: 36px;
-  padding: 0;
-  background: transparent;
-  color: var(--color-texto);
-  font-size: 1.1rem;
+.identidad {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+  margin-right: auto;
+  min-width: 0;
 }
+
+.identidad strong {
+  font-stretch: 110%;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.estado {
+  font-size: 0.75rem;
+  color: var(--bruma-honda);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.acciones-cabecera {
+  display: flex;
+  gap: var(--e-1);
+}
+
+/* --- El hilo ---------------------------------------------------------------- */
 
 .burbujas {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
-  gap: var(--espacio-sm);
-  padding: var(--espacio-md) var(--espacio-sm);
+  gap: var(--e-3);
+  padding: var(--e-5) max(var(--e-4), calc((100% - var(--ancho-hilo)) / 2));
+  scrollbar-width: thin;
+  scrollbar-color: var(--linea) transparent;
+}
+
+.burbujas::-webkit-scrollbar {
+  width: 10px;
+}
+
+.burbujas::-webkit-scrollbar-thumb {
+  background: var(--linea);
+  border: 3px solid var(--noche);
+  border-radius: var(--r-full);
+}
+
+.mensaje {
+  display: flex;
+  gap: var(--e-2);
+  align-items: flex-start;
+  max-width: 100%;
+  /* Entrada: sube un poco y aparece. Proposito — evitar que un mensaje nuevo
+     teletransporte el hilo. 220ms, ease-out, solo transform y opacity. */
+  animation: entrar-mensaje 220ms var(--ease-out) both;
+}
+
+@keyframes entrar-mensaje {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+}
+
+.mensaje-usuario {
+  flex-direction: row-reverse;
+  align-self: flex-end;
+}
+
+.avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-sm);
+  display: grid;
+  place-items: center;
+  background: var(--elevado);
+  border: 1px solid var(--linea);
+  color: var(--amanecer);
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+.avatar svg {
+  width: 17px;
+  height: 17px;
 }
 
 .burbuja {
-  max-width: 80%;
-  padding: var(--espacio-sm) var(--espacio-md);
-  border-radius: var(--radio);
-  line-height: 1.4;
-  white-space: pre-wrap;
+  max-width: min(100%, 58ch);
+  padding: var(--e-3) var(--e-4);
+  border-radius: var(--r-lg);
+  font-size: 0.9375rem;
+  line-height: 1.6;
 }
 
-.burbuja-usuario {
-  align-self: flex-end;
-  background: var(--color-acento);
-  color: #111;
+.mensaje-coach .burbuja {
+  background: var(--nocturno);
+  border: 1px solid var(--linea-tenue);
+  border-bottom-left-radius: var(--r-xs);
 }
 
-.burbuja-coach {
-  align-self: flex-start;
-  background: #171a20;
-  border: 1px solid var(--color-borde);
+.mensaje-usuario .burbuja {
+  background: linear-gradient(165deg, #ff9053, var(--amanecer-hondo));
+  color: #1a0b03;
+  border-bottom-right-radius: var(--r-xs);
+  box-shadow: var(--sombra-1);
 }
 
-.form-mensaje {
-  flex-direction: row;
+.mensaje-usuario .burbuja .dato {
+  color: #2a1206;
+}
+
+/* Contenido ya formateado: parrafos, listas y negritas. Se construye nodo a nodo
+   en JS, nunca con innerHTML — lo que escribe el modelo no se interpreta como
+   HTML jamas. */
+.burbuja > * + * {
+  margin-top: var(--e-2);
+}
+
+.burbuja ul,
+.burbuja ol {
+  margin: 0;
+  padding-left: var(--e-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-1);
+}
+
+.burbuja ul {
+  list-style: none;
+  padding-left: var(--e-3);
+}
+
+.burbuja ul li {
+  position: relative;
+  padding-left: var(--e-4);
+}
+
+.burbuja ul li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.66em;
+  width: 7px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--amanecer);
+}
+
+.mensaje-usuario .burbuja ul li::before {
+  background: #1a0b03;
+}
+
+.burbuja ol {
+  list-style: none;
+  counter-reset: paso;
+}
+
+.burbuja ol li {
+  counter-increment: paso;
+  position: relative;
+  padding-left: var(--e-5);
+}
+
+.burbuja ol li::before {
+  content: counter(paso);
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-family: var(--dato);
+  font-size: 0.78em;
+  color: var(--amanecer);
+}
+
+.burbuja strong {
+  font-weight: 650;
+}
+
+.mensaje-coach .dato {
+  color: var(--alba);
+}
+
+/* --- Transcripcion de voz --------------------------------------------------- */
+
+.etiqueta-voz {
+  display: inline-flex;
   align-items: center;
-  margin-top: 0;
-  padding: var(--espacio-sm);
-  gap: var(--espacio-sm);
+  gap: 4px;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--bruma-honda);
+  margin-bottom: var(--e-1);
 }
 
-.form-mensaje input {
+.etiqueta-voz svg {
+  width: 12px;
+  height: 12px;
+}
+
+.mensaje-usuario .etiqueta-voz {
+  color: rgba(26, 11, 3, 0.55);
+  justify-content: flex-end;
+  width: 100%;
+}
+
+/* Lo que el modelo cree haber oido, antes de confirmarlo. Se ve distinto a
+   proposito: el runner tiene que poder distinguir el borrador del texto final. */
+.provisional {
+  color: var(--bruma);
+  font-style: italic;
+}
+
+.mensaje-usuario .provisional {
+  color: rgba(26, 11, 3, 0.62);
+}
+
+.provisional::after {
+  content: "";
+  display: inline-block;
+  width: 2px;
+  height: 0.95em;
+  margin-left: 3px;
+  vertical-align: -0.12em;
+  background: currentColor;
+  animation: cursor 1s steps(2, start) infinite;
+}
+
+@keyframes cursor {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* Al confirmarse, el borrador y el texto definitivo se cruzan. Un fundido normal
+   deja ver dos textos superpuestos; un desenfoque de 2px los mezcla y el ojo lee
+   una sola cosa que se afina. */
+.asentando {
+  filter: blur(2.5px);
+  opacity: 0.55;
+  transition:
+    filter 180ms ease,
+    opacity 180ms ease;
+}
+
+/* --- Koda pensando y hablando ----------------------------------------------- */
+
+.pensando {
+  display: flex;
+  align-items: center;
+  gap: var(--e-2);
+  color: var(--bruma);
+  font-size: 0.875rem;
+}
+
+.puntos {
+  display: flex;
+  gap: 4px;
+}
+
+/* Animacion CSS y no JS a proposito: mientras esto se ve, el hilo principal esta
+   ocupado esperando y decodificando la respuesta. Las de CSS corren fuera de el y
+   no pierden fotogramas justo cuando mas se miran. */
+.puntos span {
+  width: 5px;
+  height: 5px;
+  border-radius: var(--r-full);
+  background: currentColor;
+  animation: latir 1.1s var(--ease-in-out) infinite;
+}
+
+.puntos span:nth-child(2) {
+  animation-delay: 140ms;
+}
+.puntos span:nth-child(3) {
+  animation-delay: 280ms;
+}
+
+@keyframes latir {
+  0%,
+  60%,
+  100% {
+    opacity: 0.28;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+.avatar.hablando {
+  border-color: var(--amanecer);
+  box-shadow: 0 0 0 3px var(--brasa);
+}
+
+/* --- Estado vacio ----------------------------------------------------------- */
+
+.bienvenida {
+  margin: auto 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--e-3);
+  padding: var(--e-4) 0 var(--e-6);
+}
+
+.bienvenida h2 {
+  font-size: clamp(1.75rem, 7vw, 2.25rem);
+  font-stretch: 116%;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  margin-top: var(--e-2);
+}
+
+.bienvenida p {
+  color: var(--bruma);
+  max-width: 42ch;
+}
+
+.sugerencias {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e-2);
+  margin-top: var(--e-3);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e-2);
+  padding: var(--e-2) var(--e-3);
+  border: 1px solid var(--linea);
+  border-radius: var(--r-full);
+  background: var(--nocturno);
+  color: var(--bruma);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  transition:
+    transform 160ms var(--ease-out),
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.chip svg {
+  width: 16px;
+  height: 16px;
+  color: var(--amanecer);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .chip:hover {
+    color: var(--tiza);
+    border-color: var(--bruma-honda);
+  }
+}
+
+/* --- El compositor ---------------------------------------------------------- */
+
+.compositor {
+  padding: var(--e-3) max(var(--e-4), calc((100% - var(--ancho-hilo)) / 2));
+  padding-bottom: max(var(--e-3), env(safe-area-inset-bottom));
+  border-top: 1px solid var(--linea-tenue);
+  background: rgba(9, 13, 24, 0.82);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  z-index: var(--z-compositor);
+}
+
+.caja-compositor {
+  display: flex;
+  align-items: center;
+  gap: var(--e-2);
+  padding: var(--e-1);
+  border: 1px solid var(--linea);
+  border-radius: var(--r-lg);
+  background: var(--nocturno);
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.caja-compositor:focus-within {
+  border-color: var(--bruma-honda);
+  box-shadow: var(--sombra-1);
+}
+
+.caja-compositor input {
   flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  min-height: 42px;
+  padding-left: var(--e-3);
 }
 
-.form-mensaje button {
-  min-width: 44px;
-  padding: 0;
+.caja-compositor input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.boton-mic,
+.boton-enviar {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: var(--r-md);
+  flex-shrink: 0;
+  transition:
+    transform 160ms var(--ease-out),
+    background-color 180ms ease,
+    color 180ms ease;
+}
+
+.boton-mic {
+  color: var(--bruma);
+}
+
+.boton-mic svg {
+  width: 21px;
+  height: 21px;
+}
+
+.boton-mic .icono-parar {
+  display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .boton-mic:hover {
+    color: var(--tiza);
+    background: var(--elevado);
+  }
+}
+
+.boton-enviar {
+  background: var(--elevado);
+  color: var(--bruma-honda);
+}
+
+.boton-enviar svg {
+  width: 19px;
+  height: 19px;
+}
+
+/* Solo se enciende cuando hay algo que mandar. */
+.caja-compositor:has(input:not(:placeholder-shown)) .boton-enviar {
+  background: linear-gradient(165deg, #ff9053, var(--amanecer-hondo));
+  color: #1a0b03;
+}
+
+/* --- Grabando --------------------------------------------------------------- */
+
+.compositor.grabando .caja-compositor {
+  display: none;
+}
+
+.barra-grabacion {
+  display: flex;
+  align-items: center;
+  gap: var(--e-3);
+  height: 52px;
+  padding: 0 var(--e-3) 0 var(--e-4);
+  border: 1px solid rgba(251, 122, 70, 0.35);
+  border-radius: var(--r-lg);
+  background: var(--nocturno);
+}
+
+.punto-rec {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--r-full);
+  background: var(--amanecer);
+  flex-shrink: 0;
+  animation: respirar 1.6s var(--ease-in-out) infinite;
+}
+
+@keyframes respirar {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+.etiqueta-rec {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--tiza);
+  white-space: nowrap;
+}
+
+/* Las barras se mueven con el volumen real del microfono. Si no se mueven, no te
+   esta oyendo — y eso se ve antes de mandar el audio, no despues. */
+.ondas {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 26px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ondas span {
+  width: 3px;
+  height: 100%;
+  border-radius: var(--r-full);
+  background: var(--amanecer);
+  transform: scaleY(0.16);
+  transform-origin: center;
+  transition: transform 80ms linear;
+}
+
+.cronometro {
+  font-family: var(--dato);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--bruma);
   flex-shrink: 0;
 }
 
-#boton-mic.grabando {
-  background: #e0293e;
-  color: #fff;
+.barra-grabacion .boton-mic {
+  background: var(--amanecer);
+  color: #1a0b03;
 }
 
-/* --- Paneles de plan y perfil --- */
+.barra-grabacion .boton-mic .icono-micro {
+  display: none;
+}
+
+.barra-grabacion .boton-mic .icono-parar {
+  display: block;
+}
+
+/* =============================================================================
+   Paneles
+   ============================================================================= */
+
+.velo {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-velo);
+  background: rgba(4, 7, 14, 0.65);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+  opacity: 0;
+  transition: opacity 300ms var(--ease-out);
+}
+
+.velo.abierto {
+  opacity: 1;
+}
 
 .panel {
   position: fixed;
-  inset: 0;
-  z-index: 10;
+  z-index: var(--z-panel);
   display: flex;
   flex-direction: column;
-  background: var(--color-fondo);
-  padding: var(--espacio-sm) var(--espacio-md) 0;
+  background: var(--nocturno);
+  box-shadow: var(--sombra-3);
+  /* Sale por donde entro: en movil sube desde abajo, en escritorio entra desde la
+     derecha. La curva es la de Vaul/Ionic, la que usan las hojas de iOS. */
+  transition: transform 420ms var(--ease-drawer);
+}
+
+/* Movil: hoja inferior */
+@media (max-width: 759px) {
+  .panel {
+    inset: auto 0 0 0;
+    max-height: 92dvh;
+    border-radius: var(--r-lg) var(--r-lg) 0 0;
+    border-top: 1px solid var(--linea);
+    transform: translateY(100%);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .panel.abierto {
+    transform: translateY(0);
+  }
+
+  /* El asa: en una hoja que sube desde abajo, dice que se puede cerrar. */
+  .cabecera-panel::before {
+    content: "";
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 36px;
+    height: 4px;
+    border-radius: var(--r-full);
+    background: var(--linea);
+  }
+}
+
+/* Escritorio: cajon lateral */
+@media (min-width: 760px) {
+  .panel {
+    inset: 0 0 0 auto;
+    width: min(440px, 100%);
+    border-left: 1px solid var(--linea);
+    transform: translateX(100%);
+  }
+
+  .panel.abierto {
+    transform: translateX(0);
+  }
 }
 
 .cabecera-panel {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: var(--espacio-sm);
-  border-bottom: 1px solid var(--color-borde);
+  gap: var(--e-3);
+  padding: var(--e-4);
+  padding-top: max(var(--e-4), env(safe-area-inset-top));
+  border-bottom: 1px solid var(--linea-tenue);
+  flex-shrink: 0;
 }
 
 .cabecera-panel h2 {
-  margin: 0;
-  font-size: 1.15rem;
+  display: flex;
+  align-items: center;
+  gap: var(--e-2);
+  font-size: 1.0625rem;
+  font-stretch: 110%;
+}
+
+.cabecera-panel h2 svg {
+  width: 19px;
+  height: 19px;
+  color: var(--amanecer);
 }
 
 .contenido-panel {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  padding: var(--espacio-md) 0 var(--espacio-lg);
-  width: 100%;
-  max-width: 560px;
-  margin: 0 auto;
-}
-
-select {
-  min-height: 44px;
-  padding: 0 var(--espacio-sm);
-  border-radius: var(--radio);
-  border: 1px solid var(--color-borde);
-  background: #171a20;
-  color: var(--color-texto);
-  font-size: 1rem;
-}
-
-.boton-secundario {
-  background: transparent;
-  color: var(--color-texto-tenue);
-  border: 1px solid var(--color-borde);
+  overscroll-behavior: contain;
+  padding: var(--e-4) var(--e-4) var(--e-7);
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-4);
+  scrollbar-width: thin;
+  scrollbar-color: var(--linea) transparent;
 }
 
 /* En la bienvenida no hay a donde volver: el chat todavia no se ha visto. Se sale
-   guardando o diciendo "lo hago despues", no con una cruz que no lleva a ningun sitio. */
+   guardando o diciendo "lo hago despues", no con una cruz que no lleva a nada. */
 .panel.modo-bienvenida .cerrar-panel {
   display: none;
 }
 
-.avisos {
-  margin-top: var(--espacio-lg);
-  padding-top: var(--espacio-md);
-  border-top: 1px solid var(--color-borde);
+/* =============================================================================
+   Panel del plan — "la pista"
+   ============================================================================= */
+
+.pista {
+  padding: var(--e-4);
+  border-radius: var(--r-lg);
+  background:
+    radial-gradient(28rem 14rem at 90% -20%, rgba(251, 122, 70, 0.13), transparent 70%),
+    var(--elevado);
+  border: 1px solid var(--linea-tenue);
 }
 
-.avisos h3 {
-  margin: 0 0 var(--espacio-sm);
-  font-size: 1rem;
+.pista-titular {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--e-3);
+  margin-bottom: var(--e-4);
+}
+
+.pista-titular h3 {
+  font-size: 1.25rem;
+  font-stretch: 114%;
+}
+
+.cuenta-atras {
+  text-align: right;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.cuenta-atras .numero {
+  display: block;
+  font-family: var(--cuerpo);
+  font-size: 2.5rem;
+  font-stretch: 120%;
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  font-variant-numeric: tabular-nums;
+  color: var(--amanecer);
+}
+
+.cuenta-atras .unidad {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--bruma-honda);
+}
+
+/* Los carriles: una barra por semana, la altura es el volumen. El plan se cuenta
+   hacia atras desde la carrera, asi que la bajada del final no es un bug — es el
+   taper, y aqui se ve de un vistazo. */
+.carriles {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 68px;
+  margin-bottom: var(--e-2);
+}
+
+.carril {
+  flex: 1;
+  min-width: 0;
+  border-radius: 3px 3px 1px 1px;
+  background: var(--linea);
+  transform-origin: bottom;
+  position: relative;
+}
+
+.carril-hecha {
+  background: var(--bruma-honda);
+}
+.carril-descarga {
+  background: var(--suave);
+  opacity: 0.75;
+}
+.carril-taper {
+  background: var(--alba);
+}
+.carril-actual {
+  background: var(--amanecer);
+  box-shadow: 0 0 12px rgba(251, 122, 70, 0.5);
+}
+
+/* Momento unico: los carriles crecen en cascada al abrir el plan. Es lo que se ve
+   una vez, cuando ya hay un plan que enseñar — el sitio donde el presupuesto de
+   deleite esta permitido. */
+.carriles.animar .carril {
+  animation: crecer 320ms var(--ease-out) both;
+  animation-delay: calc(var(--i) * 26ms);
+}
+
+@keyframes crecer {
+  from {
+    transform: scaleY(0.06);
+    opacity: 0;
+  }
+}
+
+.pista-pie {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--e-2);
+  font-size: 0.75rem;
+  color: var(--bruma-honda);
+  border-top: 1px solid var(--linea-tenue);
+  padding-top: var(--e-2);
+}
+
+.pista-pie .meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--bruma);
+}
+
+.pista-pie svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* --- Lo siguiente ----------------------------------------------------------- */
+
+.proxima {
+  display: flex;
+  gap: var(--e-3);
+  align-items: flex-start;
+  padding: var(--e-4);
+  border-radius: var(--r-md);
+  border: 1px solid rgba(251, 122, 70, 0.28);
+  background: var(--brasa);
+}
+
+.proxima .icono-sesion {
+  color: var(--amanecer);
+}
+
+.proxima .cuando {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--amanecer);
+  margin-bottom: 2px;
+}
+
+/* --- Zonas de ritmo --------------------------------------------------------- */
+
+.bloque {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-2);
+}
+
+.bloque > h4 {
+  margin: 0;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--bruma-honda);
+}
+
+.zonas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  gap: var(--e-2);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.zonas li {
+  padding: var(--e-2) var(--e-3);
+  border-radius: var(--r-sm);
+  background: var(--elevado);
+  border-left: 2px solid var(--linea);
+}
+
+.zonas li:nth-child(4n + 1) {
+  border-left-color: var(--suave);
+}
+.zonas li:nth-child(4n + 2) {
+  border-left-color: var(--largo);
+}
+.zonas li:nth-child(4n + 3) {
+  border-left-color: var(--alba);
+}
+.zonas li:nth-child(4n + 4) {
+  border-left-color: var(--amanecer);
+}
+
+.zonas .nombre-zona {
+  display: block;
+  font-size: 0.6875rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--bruma-honda);
+  margin-bottom: 1px;
+}
+
+.zonas .dato {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--tiza);
+}
+
+/* --- Semanas ---------------------------------------------------------------- */
+
+.semana {
+  border: 1px solid var(--linea-tenue);
+  border-radius: var(--r-md);
+  background: var(--nocturno);
+  overflow: hidden;
+}
+
+.semanas {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-2);
+}
+
+.semana > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--e-2);
+  padding: var(--e-3);
+  cursor: pointer;
+  list-style: none;
+  -webkit-user-select: none;
+  user-select: none;
+  transition: background-color 160ms ease;
+}
+
+.semana > summary::-webkit-details-marker {
+  display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .semana > summary:hover {
+    background: var(--elevado);
+  }
+}
+
+.semana .caret {
+  width: 15px;
+  height: 15px;
+  color: var(--bruma-honda);
+  transition: transform 200ms var(--ease-out);
+}
+
+.semana[open] .caret {
+  transform: rotate(90deg);
+}
+
+.semana .num-semana {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.semana .volumen {
+  margin-left: auto;
+  font-family: var(--dato);
+  font-size: 0.8125rem;
+  color: var(--bruma);
+}
+
+.etiqueta {
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: var(--r-xs);
+}
+
+.etiqueta-descarga {
+  background: rgba(79, 209, 165, 0.14);
+  color: var(--suave);
+}
+
+.etiqueta-taper {
+  background: rgba(255, 196, 107, 0.14);
+  color: var(--alba);
+}
+
+.sesiones {
+  border-top: 1px solid var(--linea-tenue);
+}
+
+.sesion {
+  display: flex;
+  align-items: baseline;
+  gap: var(--e-3);
+  padding: var(--e-2) var(--e-3);
+  font-size: 0.875rem;
+}
+
+.sesion + .sesion {
+  border-top: 1px solid var(--linea-tenue);
+}
+
+.sesion-dia {
+  width: 2.4rem;
+  flex-shrink: 0;
+  font-family: var(--dato);
+  font-size: 0.75rem;
+  color: var(--bruma-honda);
+  text-transform: lowercase;
+}
+
+.icono-sesion {
+  align-self: center;
+  color: var(--bruma);
+}
+
+.icono-sesion svg {
+  width: 16px;
+  height: 16px;
+}
+
+.sesion-facil .icono-sesion {
+  color: var(--suave);
+}
+.sesion-largo .icono-sesion {
+  color: var(--largo);
+}
+.sesion-series .icono-sesion,
+.sesion-tempo .icono-sesion {
+  color: var(--amanecer);
+}
+.sesion-descanso {
+  color: var(--bruma-honda);
+}
+
+.sesion-texto {
+  min-width: 0;
+}
+
+.sesion-ritmo {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-family: var(--dato);
+  font-size: 0.75rem;
+  color: var(--bruma-honda);
+}
+
+/* --- Vacio y carga ---------------------------------------------------------- */
+
+.vacio {
+  margin: auto;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--e-3);
+  padding: var(--e-6) var(--e-4);
+  color: var(--bruma);
+  max-width: 34ch;
+}
+
+.vacio svg {
+  width: 34px;
+  height: 34px;
+  color: var(--linea);
+}
+
+.vacio strong {
+  font-size: 1.0625rem;
+  font-stretch: 110%;
+  font-weight: 700;
+  color: var(--tiza);
+}
+
+/* Esqueleto en vez de una ruleta: tiene la forma de lo que va a llegar, asi que
+   la espera no cambia el layout cuando el contenido aparece. */
+.esqueleto {
+  border-radius: var(--r-md);
+  background: linear-gradient(100deg, var(--nocturno) 30%, var(--elevado) 50%, var(--nocturno) 70%);
+  background-size: 220% 100%;
+  animation: barrer 1.4s linear infinite;
+}
+
+@keyframes barrer {
+  to {
+    background-position: -220% 0;
+  }
+}
+
+/* =============================================================================
+   Perfil y recordatorios
+   ============================================================================= */
+
+#form-perfil {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-4);
+}
+
+.fila-campos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--e-3);
+}
+
+.marca-reciente {
+  margin: 0;
+  padding: var(--e-4);
+  border: 1px solid var(--linea-tenue);
+  border-radius: var(--r-md);
+  background: var(--elevado);
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-3);
+}
+
+.marca-reciente legend {
+  padding: 0 var(--e-2);
+  margin-left: calc(var(--e-2) * -1);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--amanecer);
+}
+
+.campo-select {
+  position: relative;
+}
+
+.campo-select select {
+  appearance: none;
+  padding-right: var(--e-6);
+}
+
+.icono-select {
+  position: absolute;
+  right: var(--e-3);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 15px;
+  height: 15px;
+  color: var(--bruma-honda);
+  pointer-events: none;
+}
+
+.acciones-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-2);
+}
+
+.bloque-avisos {
+  padding-top: var(--e-4);
+  border-top: 1px solid var(--linea-tenue);
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-2);
+}
+
+.bloque-avisos h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--e-2);
+  font-size: 0.9375rem;
+}
+
+.bloque-avisos h3 svg {
+  width: 17px;
+  height: 17px;
+  color: var(--amanecer);
 }
 
 .aviso {
   display: flex;
   align-items: center;
-  gap: var(--espacio-sm);
-  padding: var(--espacio-sm) 0;
-  font-size: 0.9rem;
+  gap: var(--e-3);
+  padding: var(--e-3);
+  border-radius: var(--r-md);
+  background: var(--elevado);
+  border: 1px solid var(--linea-tenue);
 }
 
-.aviso label {
+.aviso .icono-aviso {
+  color: var(--bruma-honda);
+  transition: color 200ms ease;
+}
+
+.aviso:has(input[type="checkbox"]:checked) .icono-aviso {
+  color: var(--amanecer);
+}
+
+.aviso-texto {
   flex: 1;
-  text-align: left;
-  color: var(--color-texto);
+  min-width: 0;
+}
+
+.aviso-texto label {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--tiza);
+  cursor: pointer;
 }
 
 .aviso input[type="time"] {
+  width: 6.5rem;
   min-height: 38px;
-  width: 7.5rem;
+  padding: 0 var(--e-2);
+  font-family: var(--dato);
+  font-size: 0.8125rem;
+  flex-shrink: 0;
+  background: var(--noche);
+}
+
+.aviso input[type="time"]:disabled {
+  opacity: 0.4;
+}
+
+/* Interruptor de verdad, no una casilla del sistema: se ve el estado desde lejos
+   y el area de toque es la que necesita un pulgar. */
+.interruptor {
+  position: relative;
+  width: 42px;
+  height: 25px;
   flex-shrink: 0;
 }
 
-.aviso input[type="checkbox"] {
-  width: 20px;
-  height: 20px;
+.interruptor input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
   min-height: 0;
-  flex-shrink: 0;
-  accent-color: var(--color-acento);
-}
-
-.resumen-plan {
-  display: flex;
-  flex-direction: column;
-  gap: var(--espacio-sm);
-  padding: var(--espacio-md);
-  border: 1px solid var(--color-borde);
-  border-radius: var(--radio);
-  background: #171a20;
-  margin-bottom: var(--espacio-md);
-}
-
-.resumen-plan h3 {
+  height: 100%;
   margin: 0;
-  font-size: 1.3rem;
-}
-
-.destacado {
-  color: var(--color-acento);
-  font-weight: 600;
-}
-
-.zonas {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-  gap: var(--espacio-sm);
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  font-size: 0.9rem;
-}
-
-.zonas span {
-  display: block;
-  color: var(--color-texto-tenue);
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.aviso {
-  font-size: 0.85rem;
-  color: var(--color-texto-tenue);
-  line-height: 1.4;
-  margin: 0;
-}
-
-.semana {
-  border: 1px solid var(--color-borde);
-  border-radius: var(--radio);
-  margin-bottom: var(--espacio-sm);
-  overflow: hidden;
-}
-
-.semana > summary {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--espacio-sm);
-  padding: var(--espacio-sm) var(--espacio-md);
+  opacity: 0;
   cursor: pointer;
-  font-weight: 600;
+  z-index: 1;
 }
 
-.semana[open] > summary {
-  border-bottom: 1px solid var(--color-borde);
+.interruptor .pista-interruptor {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--r-full);
+  background: var(--linea);
+  transition: background-color 200ms var(--ease-out);
 }
 
-.etiqueta {
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--color-borde);
-  color: var(--color-texto-tenue);
+.interruptor .pista-interruptor::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 19px;
+  height: 19px;
+  border-radius: var(--r-full);
+  background: var(--bruma);
+  transition:
+    transform 200ms var(--ease-out),
+    background-color 200ms var(--ease-out);
 }
 
-.etiqueta-descarga {
-  background: #1f3a2c;
-  color: #7ddba3;
+.interruptor input:checked + .pista-interruptor {
+  background: var(--amanecer-hondo);
 }
 
-.etiqueta-taper {
-  background: #3a2f1f;
-  color: #dbc27d;
+.interruptor input:checked + .pista-interruptor::after {
+  transform: translateX(17px);
+  background: #fff5ef;
 }
 
-.sesion {
-  display: flex;
-  gap: var(--espacio-md);
-  padding: var(--espacio-sm) var(--espacio-md);
-  border-top: 1px solid #20232b;
-  font-size: 0.9rem;
+.interruptor input:focus-visible + .pista-interruptor {
+  outline: 2px solid var(--amanecer);
+  outline-offset: 2px;
 }
 
-.sesion:first-child {
-  border-top: none;
+/* =============================================================================
+   Escritorio
+   ============================================================================= */
+
+@media (min-width: 760px) {
+  .app {
+    grid-template-columns: 86px minmax(0, 1fr);
+  }
+
+  .rail {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--e-2);
+    padding: var(--e-4) var(--e-2);
+    border-right: 1px solid var(--linea-tenue);
+    background: var(--nocturno);
+  }
+
+  .rail .marca {
+    margin-bottom: var(--e-4);
+  }
+
+  .boton-rail {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    width: 100%;
+    padding: var(--e-2) var(--e-1);
+    border-radius: var(--r-md);
+    color: var(--bruma-honda);
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    transition:
+      transform 160ms var(--ease-out),
+      background-color 160ms ease,
+      color 160ms ease;
+  }
+
+  .boton-rail svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .boton-rail[aria-current="true"] {
+    color: var(--amanecer);
+    background: var(--brasa);
+  }
+
+  .solo-movil {
+    display: none;
+  }
+
+  .cabecera-chat .marca-sm {
+    display: none;
+  }
+
+  .cabecera-chat {
+    padding-block: var(--e-4);
+  }
 }
 
-.sesion-dia {
-  flex-shrink: 0;
-  width: 3.5rem;
-  color: var(--color-texto-tenue);
-  text-transform: capitalize;
+/* A partir de aqui cabe el plan al lado sin apretar la conversacion: deja de ser
+   un cajon que tapa y pasa a ser una columna fija. Un plan que se consulta a cada
+   rato no deberia costar un clic cada vez. */
+@media (min-width: 1200px) {
+  .app.plan-anclado {
+    grid-template-columns: 86px minmax(0, 1fr) 400px;
+  }
+
+  .app.plan-anclado #panel-plan {
+    position: static;
+    transform: none;
+    width: auto;
+    box-shadow: none;
+    background: var(--noche);
+    border-left: 1px solid var(--linea-tenue);
+    /* Sin esto la columna crece con su contenido en vez de repartir el alto, y
+       las semanas quedan fuera de la pantalla sin forma de llegar a ellas: un
+       elemento de rejilla trae min-height:auto y no deja desbordar por dentro. */
+    min-height: 0;
+  }
+
+  .app.plan-anclado #panel-plan .cerrar-panel {
+    display: none;
+  }
 }
 
-.sesion-descanso {
-  color: var(--color-texto-tenue);
-}
+/* =============================================================================
+   Menos movimiento
+   Menos y mas suave, no cero: lo que ayuda a entender se queda (opacidad, color),
+   lo que se mueve por el espacio se va.
+   ============================================================================= */
 
-.vacio {
-  text-align: center;
-  color: var(--color-texto-tenue);
-  line-height: 1.5;
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .mensaje,
+  .carriles.animar .carril {
+    animation: aparecer 180ms ease both;
+  }
+
+  .panel {
+    transition: opacity 200ms ease;
+  }
+
+  .puntos span,
+  .punto-rec,
+  .esqueleto {
+    animation-duration: 2.4s;
+  }
+
+  .ondas span {
+    transition: none;
+  }
+
+  button:active:not(:disabled) {
+    transform: none;
+  }
+
+  @keyframes aparecer {
+    from {
+      opacity: 0;
+    }
+  }
 }

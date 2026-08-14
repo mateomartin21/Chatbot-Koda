@@ -45,3 +45,4 @@ Las negativas son obligatorias. Un ADR sin consecuencias negativas es publicidad
 | [012](ADR-012-tensiones-entre-reglas-de-entrenamiento.md) | Cómo se resuelven las contradicciones entre las reglas R1–R8 | Aceptado |
 | [013](ADR-013-prompt-propio-para-el-modelo-de-voz.md) | Un prompt propio para el modelo de voz, y herramientas donde el fallo no cabe | Aceptado |
 | [014](ADR-014-jobs-en-memoria.md) | Los avisos programados viven en memoria y se reconstruyen al arrancar | Aceptado |
+| [015](ADR-015-direccion-visual-y-presupuesto-de-movimiento.md) | Una dirección visual propia y un presupuesto de movimiento | Aceptado |

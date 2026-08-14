@@ -1,3 +1,110 @@
+/* =============================================================================
+   Koda — interfaz web
+
+   Sin framework a proposito (ver docs/adr/ADR-002-python-fastapi.md): la app es
+   una sola pantalla con una conversacion y dos paneles. Lo que sigue esta
+   ordenado por capas: utilidades, el hilo de mensajes, la voz, y los paneles.
+   ============================================================================= */
+
+const ICONOS = "/iconos.svg";
+
+// --- Utilidades de DOM -------------------------------------------------------
+
+function crear(etiqueta, clase, texto) {
+  const nodo = document.createElement(etiqueta);
+  if (clase) nodo.className = clase;
+  if (texto !== undefined) nodo.textContent = texto;
+  return nodo;
+}
+
+function icono(nombre, clase) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  if (clase) svg.setAttribute("class", clase);
+  svg.setAttribute("aria-hidden", "true");
+  const uso = document.createElementNS("http://www.w3.org/2000/svg", "use");
+  uso.setAttribute("href", `${ICONOS}#i-${nombre}`);
+  svg.appendChild(uso);
+  return svg;
+}
+
+function conCargador(boton, cargando) {
+  boton.dataset.cargando = cargando ? "si" : "no";
+  boton.disabled = cargando;
+}
+
+// --- Formato del texto de Koda ----------------------------------------------
+//
+// El modelo contesta en texto plano con guiones, listas numeradas y **negritas**.
+// Volcarlo tal cual en un solo bloque satura la vista; interpretarlo con innerHTML
+// seria meter en el DOM lo que escriba un LLM. Asi que se construye nodo a nodo:
+// nada de lo que devuelva el modelo puede convertirse en HTML.
+
+// Cualquier medida se pasa a la tipografia de datos: 5:30/km, 12 km, 45 min, 21K.
+const MEDIDAS = /(\d+(?:[.,]\d+)?\s?(?:km\/h|km|k|m|min|h)\b(?:\/km)?|\d{1,2}:\d{2}(?::\d{2})?(?:\s?\/\s?km)?)/gi;
+
+function conMedidas(destino, texto) {
+  for (const trozo of texto.split(MEDIDAS)) {
+    if (!trozo) continue;
+    MEDIDAS.lastIndex = 0;
+    if (MEDIDAS.test(trozo)) destino.appendChild(crear("span", "dato", trozo));
+    else destino.appendChild(document.createTextNode(trozo));
+  }
+}
+
+function conNegritas(destino, texto) {
+  // Se parte por **...**; los trozos impares son lo que va en negrita.
+  texto.split(/\*\*(.+?)\*\*/g).forEach((trozo, indice) => {
+    if (!trozo) return;
+    if (indice % 2 === 1) {
+      const fuerte = crear("strong");
+      conMedidas(fuerte, trozo);
+      destino.appendChild(fuerte);
+    } else {
+      conMedidas(destino, trozo);
+    }
+  });
+}
+
+const VINETA = /^\s*[-*•]\s+/;
+const NUMERADA = /^\s*\d+[.)]\s+/;
+
+function pintarTexto(destino, texto) {
+  destino.replaceChildren();
+  const bloques = String(texto ?? "")
+    .replace(/\r/g, "")
+    .split(/\n{2,}/);
+
+  for (const bloque of bloques) {
+    const lineas = bloque.split("\n").filter((linea) => linea.trim());
+    if (!lineas.length) continue;
+
+    const vinetas = lineas.every((linea) => VINETA.test(linea));
+    const numeradas = !vinetas && lineas.every((linea) => NUMERADA.test(linea));
+
+    if (vinetas || numeradas) {
+      const lista = crear(numeradas ? "ol" : "ul");
+      for (const linea of lineas) {
+        const item = crear("li");
+        conNegritas(item, linea.replace(vinetas ? VINETA : NUMERADA, ""));
+        lista.appendChild(item);
+      }
+      destino.appendChild(lista);
+      continue;
+    }
+
+    // Un salto suelto dentro de un parrafo es un salto de linea, no un parrafo
+    // nuevo: partirlos separaria frases que el modelo escribio juntas.
+    const parrafo = crear("p");
+    lineas.forEach((linea, indice) => {
+      if (indice) parrafo.appendChild(crear("br"));
+      conNegritas(parrafo, linea);
+    });
+    destino.appendChild(parrafo);
+  }
+}
+
+// --- Pantallas ---------------------------------------------------------------
+
 const pantallaLogin = document.getElementById("pantalla-login");
 const pantallaChat = document.getElementById("pantalla-chat");
 
@@ -9,6 +116,7 @@ function mostrarLogin() {
 function mostrarChat() {
   pantallaLogin.hidden = true;
   pantallaChat.hidden = false;
+  sincronizarAnclaje();
 }
 
 async function init() {
@@ -22,16 +130,16 @@ async function init() {
     }
     mostrarChat();
     await avisarDeLaZonaHoraria();
-    // Correo -> perfil -> chat. Un runner del que no se sabe nada solo puede recibir
-    // ritmos estimados, y de los ritmos sale el plan entero: preguntarlo despues es
-    // preguntarlo tarde.
+    // Correo -> perfil -> chat. De un runner del que no se sabe nada solo salen
+    // ritmos estimados, y de los ritmos sale el plan entero: preguntarlo despues
+    // es preguntarlo tarde.
     await pedirPerfilSiHaceFalta();
   } catch {
     mostrarLogin();
   }
 }
 
-// --- Login ---
+// --- Entrar ------------------------------------------------------------------
 
 const formSolicitar = document.getElementById("form-solicitar");
 const mensajeLogin = document.getElementById("mensaje-login");
@@ -45,7 +153,7 @@ formSolicitar.addEventListener("submit", async (evento) => {
   evento.preventDefault();
   const email = document.getElementById("email").value.trim();
   const boton = formSolicitar.querySelector("button");
-  boton.disabled = true;
+  conCargador(boton, true);
 
   try {
     const resp = await fetch("/api/auth/solicitar", {
@@ -54,94 +162,194 @@ formSolicitar.addEventListener("submit", async (evento) => {
       body: JSON.stringify({ email }),
     });
     if (!resp.ok) {
-      mostrarMensajeLogin("No pudimos enviar el correo. Intenta de nuevo en unos segundos.");
+      mostrarMensajeLogin("No pudimos enviar el correo. Inténtalo de nuevo en unos segundos.");
       return;
     }
-    mostrarMensajeLogin("Revisa tu bandeja de entrada — te mandamos un enlace para entrar.");
+    mostrarMensajeLogin("Revisa tu bandeja: te mandamos un enlace para entrar.");
     formSolicitar.reset();
   } catch {
-    mostrarMensajeLogin("No pudimos enviar el correo. Intenta de nuevo en unos segundos.");
+    mostrarMensajeLogin("No pudimos enviar el correo. Inténtalo de nuevo en unos segundos.");
   } finally {
-    boton.disabled = false;
+    conCargador(boton, false);
   }
 });
 
-// --- Chat ---
+// =============================================================================
+// El hilo de la conversacion
+// =============================================================================
 
 const burbujas = document.getElementById("burbujas");
+const bienvenida = document.getElementById("bienvenida");
 const formMensaje = document.getElementById("form-mensaje");
 const inputTexto = document.getElementById("texto");
 const botonMic = document.getElementById("boton-mic");
-const reproductor = document.getElementById("reproductor");
+const botonParar = document.getElementById("boton-parar");
+const estadoKoda = document.getElementById("estado-koda");
+const compositor = document.getElementById("form-mensaje");
 
-function agregarBurbuja(texto, rol) {
-  const burbuja = document.createElement("div");
-  burbuja.className = `burbuja burbuja-${rol}`;
-  burbuja.textContent = texto;
-  burbujas.appendChild(burbuja);
+const ESTADO_EN_REPOSO = "Entrenador de running";
+
+function estado(texto) {
+  estadoKoda.textContent = texto || ESTADO_EN_REPOSO;
+}
+
+function alFinal() {
   burbujas.scrollTop = burbujas.scrollHeight;
-  return burbuja;
 }
 
-// El pipeline es en cascada (STT -> LLM -> TTS), asi que tarda unos segundos de
-// verdad — ver docs/adr/ADR-001-pipeline-cascada.md. No hay streaming real (esta
-// descartado a proposito en el plan), pero mostrar la etapa aproximada evita que
-// se sienta como que la app se congelo.
-function iniciarEtapasDeEspera(burbuja, huboAudio) {
-  const etapas = huboAudio
-    ? ["Escuchando tu audio…", "Pensando…", "Preparando la respuesta…"]
-    : ["Pensando…", "Preparando la respuesta…"];
-  let indice = 0;
-  burbuja.textContent = etapas[0];
-  const intervalo = setInterval(() => {
-    indice += 1;
-    if (indice < etapas.length) burbuja.textContent = etapas[indice];
-  }, 1500);
-  return () => clearInterval(intervalo);
+/* Un mensaje del hilo. Devuelve un mando en vez del nodo pelado: quien lo usa no
+   deberia saber si por dentro hay un parrafo, una lista o tres puntos animados. */
+function agregarMensaje(rol, { voz = false } = {}) {
+  bienvenida?.remove();
+
+  const fila = crear("div", `mensaje mensaje-${rol}`);
+  if (rol === "coach") {
+    const avatar = crear("div", "avatar");
+    avatar.appendChild(icono("koda"));
+    fila.appendChild(avatar);
+  }
+
+  const burbuja = crear("div", "burbuja");
+  if (voz) {
+    const etiqueta = crear("span", "etiqueta-voz");
+    etiqueta.append(icono("micro"), crear("span", null, "voz"));
+    burbuja.appendChild(etiqueta);
+  }
+  const cuerpo = crear("div");
+  burbuja.appendChild(cuerpo);
+  fila.appendChild(burbuja);
+  burbujas.appendChild(fila);
+  alFinal();
+
+  let asentado = false;
+  let temporizador = null;
+
+  return {
+    fila,
+    escribir(texto) {
+      clearInterval(temporizador);
+      pintarTexto(cuerpo, texto);
+      cuerpo.classList.remove("provisional");
+      alFinal();
+    },
+
+    // Transcripcion en curso: se ve distinta del texto confirmado a proposito.
+    // Al confirmarse, los dos textos se cruzan con un desenfoque de 2px — sin el
+    // se ven dos frases superpuestas; con el, el ojo lee una sola que se afina.
+    escribirParcial(texto, definitiva) {
+      if (definitiva && !asentado) {
+        asentado = true;
+        cuerpo.classList.add("asentando");
+        setTimeout(() => {
+          pintarTexto(cuerpo, texto);
+          cuerpo.classList.remove("asentando", "provisional");
+          alFinal();
+        }, 170);
+        return;
+      }
+      pintarTexto(cuerpo, texto);
+      cuerpo.classList.toggle("provisional", !asentado);
+      alFinal();
+    },
+
+    // El pipeline en cascada tarda segundos de verdad y no hay streaming (esta
+    // descartado a proposito). Decir en que va evita que parezca colgado.
+    esperar(etapas) {
+      const caja = crear("div", "pensando");
+      const puntos = crear("div", "puntos");
+      puntos.append(crear("span"), crear("span"), crear("span"));
+      const rotulo = crear("span", null, etapas[0]);
+      caja.append(puntos, rotulo);
+      cuerpo.replaceChildren(caja);
+      estado(etapas[0]);
+      alFinal();
+
+      let indice = 0;
+      temporizador = setInterval(() => {
+        indice += 1;
+        if (indice < etapas.length) {
+          rotulo.textContent = etapas[indice];
+          estado(etapas[indice]);
+        }
+      }, 1600);
+      return () => {
+        clearInterval(temporizador);
+        estado(null);
+      };
+    },
+
+    hablando(activo) {
+      fila.querySelector(".avatar")?.classList.toggle("hablando", activo);
+    },
+  };
 }
 
-async function enviarMensaje({ texto, audioBlob, burbujaUsuarioYaAgregada = false }) {
+// --- Cascada (POST /api/mensajes) --------------------------------------------
+
+async function enviarMensaje({ texto, audioBlob, mensajeUsuarioYaPuesto = false }) {
   const formData = new FormData();
   if (texto) formData.append("texto", texto);
   if (audioBlob) formData.append("audio", audioBlob, "mensaje.webm");
 
-  if (!burbujaUsuarioYaAgregada) {
-    agregarBurbuja(texto || "🎙️ (mensaje de voz)", "usuario");
+  if (!mensajeUsuarioYaPuesto) {
+    const mio = agregarMensaje("usuario", { voz: Boolean(audioBlob) });
+    mio.escribir(texto || "Mensaje de voz");
   }
-  const burbujaEspera = agregarBurbuja("", "coach");
-  const detenerEtapas = iniciarEtapasDeEspera(burbujaEspera, Boolean(audioBlob));
+
+  const respuesta = agregarMensaje("coach");
+  const dejarDeEsperar = respuesta.esperar(
+    audioBlob
+      ? ["Escuchando tu audio", "Pensando", "Preparando la respuesta"]
+      : ["Pensando", "Preparando la respuesta"],
+  );
 
   try {
     const resp = await fetch("/api/mensajes", { method: "POST", body: formData });
-    detenerEtapas();
+    dejarDeEsperar();
     if (!resp.ok) {
-      burbujaEspera.textContent = "Algo falló al mandar tu mensaje. Intenta de nuevo.";
+      respuesta.escribir("No pude procesar tu mensaje. Inténtalo otra vez.");
       return;
     }
     const data = await resp.json();
-    burbujaEspera.textContent = data.texto;
-    if (data.audio_base64) {
-      reproductor.src = `data:audio/mpeg;base64,${data.audio_base64}`;
-      reproductor.play().catch(() => {
-        // Algunos navegadores bloquean el autoplay si pasa mucho tiempo desde el
-        // clic original. Mostramos los controles nativos para que el usuario le
-        // de play el mismo, en vez de fallar en silencio.
-        reproductor.hidden = false;
-        reproductor.controls = true;
-      });
-    }
+    respuesta.escribir(data.texto);
+    if (data.audio_base64) reproducirMp3(data.audio_base64, respuesta);
   } catch {
-    detenerEtapas();
-    burbujaEspera.textContent = "No pudimos conectar con Koda. Revisa tu conexión.";
+    dejarDeEsperar();
+    respuesta.escribir("No hay conexión con Koda. Revisa tu red e inténtalo otra vez.");
   }
+}
+
+function reproducirMp3(base64, mensaje) {
+  const audio = new Audio(`data:audio/mpeg;base64,${base64}`);
+  mensaje.hablando(true);
+  estado("Hablando");
+  const terminar = () => {
+    mensaje.hablando(false);
+    estado(null);
+  };
+  audio.addEventListener("ended", terminar, { once: true });
+  audio.play().catch(() => {
+    // Algunos navegadores bloquean el autoplay si pasa mucho tiempo desde el clic
+    // original. Se ofrece el control nativo en vez de fallar en silencio.
+    terminar();
+    audio.controls = true;
+    mensaje.fila.querySelector(".burbuja").appendChild(audio);
+  });
 }
 
 formMensaje.addEventListener("submit", async (evento) => {
   evento.preventDefault();
   const texto = inputTexto.value.trim();
-  if (!texto || sesionVoz) return; // sesionVoz: ya hay un turno de voz/texto en curso
+  if (!texto || sesionVoz) return; // sesionVoz: ya hay un turno en curso
   inputTexto.value = "";
   await enviarTexto(texto);
+});
+
+document.querySelectorAll(".chip").forEach((chip) => {
+  chip.addEventListener("click", () => {
+    if (sesionVoz) return;
+    enviarTexto(chip.dataset.sugerencia);
+  });
 });
 
 let mediaRecorder = null;
@@ -155,33 +363,85 @@ async function iniciarGrabacionCascada() {
     mediaRecorder.ondataavailable = (evento) => fragmentosAudio.push(evento.data);
     mediaRecorder.onstop = () => {
       stream.getTracks().forEach((pista) => pista.stop());
-      botonMic.classList.remove("grabando");
-      const audioBlob = new Blob(fragmentosAudio, { type: "audio/webm" });
-      enviarMensaje({ audioBlob });
+      mostrarBarraGrabacion(false);
+      enviarMensaje({ audioBlob: new Blob(fragmentosAudio, { type: "audio/webm" }) });
     };
     mediaRecorder.start();
-    botonMic.classList.add("grabando");
+    mostrarBarraGrabacion(true);
   } catch {
-    botonMic.classList.remove("grabando");
-    agregarBurbuja("No pude acceder al micrófono. Revisa los permisos del navegador.", "coach");
+    mostrarBarraGrabacion(false);
+    const aviso = agregarMensaje("coach");
+    aviso.escribir("No puedo acceder al micrófono. Revisa los permisos del navegador.");
   }
 }
 
-// --- Voz en tiempo real (Nova Sonic) con fallback automatico a la cascada ---
-// docs/adr/ADR-011-nova-sonic-y-gateway-de-modelos.md: si el WS no llega a conectar o
-// Nova Sonic no abre sesion, cae en silencio a iniciarGrabacionCascada() (arriba), el
-// flujo de siempre. Si la sesion se cae A MEDIA conversacion, NO hay handoff a la
-// cascada (recuperar el audio a medio grabar es mas riesgo del que vale para esta
-// version) — se avisa al usuario y que reintente.
+// =============================================================================
+// Barra de grabacion
+// =============================================================================
+
+const barraGrabacion = document.getElementById("barra-grabacion");
+const contenedorOndas = document.getElementById("ondas");
+const cronometro = document.getElementById("cronometro");
+const BARRAS = 18;
+
+const ondas = Array.from({ length: BARRAS }, () => {
+  const barra = crear("span");
+  contenedorOndas.appendChild(barra);
+  return barra;
+});
+
+let cronoInicio = 0;
+let cronoTemporizador = null;
+
+function mostrarBarraGrabacion(activo) {
+  barraGrabacion.hidden = !activo;
+  compositor.classList.toggle("grabando", activo);
+  botonMic.disabled = false;
+
+  if (!activo) {
+    clearInterval(cronoTemporizador);
+    ondas.forEach((barra) => (barra.style.transform = "scaleY(0.16)"));
+    estado(null);
+    return;
+  }
+
+  estado("Escuchando");
+  cronoInicio = Date.now();
+  cronometro.textContent = "0:00";
+  cronoTemporizador = setInterval(() => {
+    const s = Math.floor((Date.now() - cronoInicio) / 1000);
+    cronometro.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  }, 500);
+}
+
+/* Las barras son el volumen real del micro, desplazandose como un rollo de papel.
+   Se escribe el transform en cada barra en vez de una variable CSS en el padre:
+   cambiar una variable heredada recalcula el estilo de todos los hijos. */
+function empujarNivel(nivel) {
+  const alto = Math.min(1, Math.sqrt(nivel) * 2.6);
+  for (let i = 0; i < ondas.length - 1; i++) {
+    ondas[i].style.transform = ondas[i + 1].style.transform;
+  }
+  ondas[ondas.length - 1].style.transform = `scaleY(${Math.max(0.16, alto).toFixed(3)})`;
+}
+
+// =============================================================================
+// Voz en tiempo real (Nova Sonic) con caida automatica a la cascada
+// docs/adr/ADR-011-nova-sonic-y-gateway-de-modelos.md: si el WS no llega a
+// conectar o Nova Sonic no abre sesion, se cae en silencio a la cascada. Si la
+// sesion se corta A MEDIA conversacion NO hay traspaso (recuperar el audio a
+// medio grabar es mas riesgo del que vale): se avisa y se reintenta.
+// =============================================================================
 
 const MUESTREO_ENTRADA = 16000;
 const MUESTREO_SALIDA = 24000;
 const CODIGO_CIERRE_FALLBACK = 4500;
+const TIMEOUT_INACTIVIDAD_MS = 20000;
 
 let sesionVoz = null;
-// Si Nova Sonic ya fallo una vez en esta pagina (ej. el modelo no esta habilitado en
-// Bedrock -> Model access de esta cuenta), no tiene sentido perder tiempo intentando
-// de nuevo en cada clic -- se va directo a la cascada hasta que se recargue la pagina.
+// Si Nova Sonic ya fallo una vez en esta pagina (p. ej. el modelo no esta
+// habilitado en Bedrock -> Model access), no tiene sentido perder tiempo
+// intentandolo en cada clic: se va directo a la cascada hasta recargar.
 let vozRealtimeDeshabilitada = false;
 
 function estaGrabandoTiempoReal() {
@@ -224,7 +484,11 @@ async function iniciarVozTiempoReal() {
   const fuente = audioContextEntrada.createMediaStreamSource(streamMic);
   const nodoCaptura = new AudioWorkletNode(audioContextEntrada, "pcm-capturador");
   nodoCaptura.port.onmessage = (evento) => {
-    if (ws.readyState === WebSocket.OPEN) ws.send(evento.data);
+    if (evento.data instanceof ArrayBuffer) {
+      if (ws.readyState === WebSocket.OPEN) ws.send(evento.data);
+    } else if (evento.data?.nivel !== undefined) {
+      empujarNivel(evento.data.nivel);
+    }
   };
   fuente.connect(nodoCaptura);
 
@@ -236,23 +500,26 @@ async function iniciarVozTiempoReal() {
     nodoCaptura,
     audioContextSalida: new AudioContext({ sampleRate: MUESTREO_SALIDA }),
     siguienteInicio: 0,
-    burbujaActual: null,
+    mensajeActual: null,
     rolActual: null,
     grabando: true,
     recibioRespuesta: false,
   };
+  mostrarBarraGrabacion(true);
   reiniciarWatchdog();
   return true;
 }
 
-// Nova Sonic acepta texto ademas de audio en la misma sesion ("cross-modal input"),
-// asi que el mensaje escrito tambien intenta pasar por ahi primero -- misma voz, misma
-// latencia, un solo camino de audio para mantener. Si falla, cae a la cascada de
-// siempre (POST /api/mensajes) sin que el usuario tenga que hacer nada distinto.
+// Nova Sonic acepta texto ademas de audio en la misma sesion ("cross-modal
+// input"), asi que el mensaje escrito tambien pasa por ahi primero: misma voz,
+// misma latencia, un solo camino de audio que mantener. Si falla, cae a la
+// cascada sin que el usuario tenga que hacer nada distinto.
 async function enviarTexto(texto) {
   if (!vozRealtimeDeshabilitada) {
     const ws = await abrirSesionVoz();
     if (ws) {
+      const mio = agregarMensaje("usuario");
+      mio.escribir(texto);
       sesionVoz = {
         modo: "texto",
         ws,
@@ -261,14 +528,14 @@ async function enviarTexto(texto) {
         nodoCaptura: null,
         audioContextSalida: new AudioContext({ sampleRate: MUESTREO_SALIDA }),
         siguienteInicio: 0,
-        burbujaActual: null,
+        mensajeActual: null,
         rolActual: null,
         grabando: false,
         recibioRespuesta: false,
         textoOriginal: texto,
       };
-      agregarBurbuja(texto, "usuario");
       ws.send(JSON.stringify({ tipo: "mensaje_texto", texto }));
+      estado("Pensando");
       reiniciarWatchdog();
       return;
     }
@@ -282,40 +549,47 @@ function manejarMensajeVoz(evento) {
 
   if (typeof evento.data === "string") {
     const datos = JSON.parse(evento.data);
+
     if (datos.tipo === "transcripcion") {
-      // En modo texto, Nova Sonic tambien manda un "eco" de lo que mandamos como si
-      // fuera una transcripcion del usuario -- ya mostramos ese texto nosotros mismos
-      // al enviarlo, mostrarlo de nuevo lo duplicaria.
+      // En modo texto, Nova Sonic devuelve un "eco" de lo que mandamos como si
+      // fuera una transcripcion del usuario: ya lo pintamos al enviarlo.
       if (sesionVoz.modo === "texto" && datos.rol === "usuario") return;
       if (datos.rol !== "usuario") sesionVoz.recibioRespuesta = true;
 
-      // Nova Sonic manda primero un adelanto de lo que va a decir y, DESPUES Y NO
-      // SIEMPRE, la transcripcion confirmada. Se muestra el adelanto enseguida (si se
-      // esperara a la confirmada, en los turnos de voz el chat se quedaria mudo) y se
-      // sustituye en cuanto llega la confirmada, que es la fiel a lo que se escucho.
+      // Manda primero un adelanto de lo que va a decir y, DESPUES Y NO SIEMPRE,
+      // la transcripcion confirmada. Se muestra el adelanto enseguida (esperar a
+      // la confirmada dejaria el chat mudo en los turnos de voz) y se sustituye
+      // en cuanto llega la definitiva, que es la fiel a lo que se escucho.
       if (sesionVoz.rolActual !== datos.rol) {
-        sesionVoz.burbujaActual = agregarBurbuja("", datos.rol === "usuario" ? "usuario" : "coach");
+        sesionVoz.mensajeActual = agregarMensaje(datos.rol === "usuario" ? "usuario" : "coach", {
+          voz: true,
+        });
         sesionVoz.rolActual = datos.rol;
-        sesionVoz.textoAdelanto = "";
-        sesionVoz.textoDefinitivo = "";
+        sesionVoz.adelanto = "";
+        sesionVoz.definitivo = "";
+        if (datos.rol !== "usuario") {
+          sesionVoz.mensajeActual.hablando(true);
+          estado("Hablando");
+        }
       }
-      if (datos.definitiva) sesionVoz.textoDefinitivo += datos.texto;
-      else sesionVoz.textoAdelanto += datos.texto;
+      if (datos.definitiva) sesionVoz.definitivo += datos.texto;
+      else sesionVoz.adelanto += datos.texto;
 
-      // Se muestra la version mas completa de las dos, nunca menos de lo que ya se
-      // veia: la confirmada llega frase por frase y el turno puede cerrarse antes de
-      // que lleguen todas, asi que sustituirla a ciegas recortaba el mensaje.
-      sesionVoz.burbujaActual.textContent =
-        sesionVoz.textoDefinitivo.length >= sesionVoz.textoAdelanto.length
-          ? sesionVoz.textoDefinitivo
-          : sesionVoz.textoAdelanto;
-      burbujas.scrollTop = burbujas.scrollHeight;
+      // Se muestra la version mas completa de las dos, nunca menos de lo que ya
+      // se veia: la confirmada llega frase por frase y el turno puede cerrarse
+      // antes de que lleguen todas, asi que sustituirla a ciegas recortaba.
+      const hayDefinitivo = sesionVoz.definitivo.length >= sesionVoz.adelanto.length;
+      sesionVoz.mensajeActual.escribirParcial(
+        hayDefinitivo ? sesionVoz.definitivo : sesionVoz.adelanto,
+        hayDefinitivo && Boolean(sesionVoz.definitivo),
+      );
     } else if (datos.tipo === "turno_terminado") {
+      sesionVoz.mensajeActual?.hablando(false);
       sesionVoz.rolActual = null;
-      sesionVoz.burbujaActual = null;
-      // Un turno por sesion en esta version -- cerramos aqui, no al soltar el boton.
-      // El audio ya agendado sigue sonando: finalizarSesionVoz() espera a que termine
-      // antes de cerrar el AudioContext.
+      sesionVoz.mensajeActual = null;
+      // Un turno por sesion en esta version: se cierra aqui, no al soltar el
+      // boton. El audio ya agendado sigue sonando — finalizarSesionVoz() espera
+      // a que termine antes de cerrar el AudioContext.
       if (sesionVoz.ws.readyState === WebSocket.OPEN) sesionVoz.ws.close();
     }
     return;
@@ -343,37 +617,33 @@ function reproducirFragmentoPCM(arrayBuffer) {
   sesionVoz.siguienteInicio = inicio + buffer.duration;
 }
 
-// Watchdog de INACTIVIDAD, no un plazo fijo: se reinicia con cada mensaje que llega.
-// Un plazo fijo desde que sueltas el boton corta las respuestas largas a media frase
-// (Nova Sonic puede hablar mas de 20s seguidos) -- ese fue un bug real en pruebas.
-const TIMEOUT_INACTIVIDAD_MS = 20000;
-
+// Watchdog de INACTIVIDAD, no un plazo fijo: se reinicia con cada mensaje que
+// llega. Un plazo fijo desde que sueltas el boton corta las respuestas largas a
+// media frase (Nova Sonic puede hablar mas de 20s seguidos) — fue un bug real.
 function reiniciarWatchdog() {
   if (!sesionVoz) return;
   clearTimeout(sesionVoz.timeoutRespuesta);
   sesionVoz.timeoutRespuesta = setTimeout(() => {
     if (!sesionVoz) return;
     if (!sesionVoz.recibioRespuesta) {
-      agregarBurbuja("Koda tardó demasiado en responder. Intenta de nuevo.", "coach");
+      agregarMensaje("coach").escribir("Koda tardó demasiado en responder. Inténtalo otra vez.");
     }
-    if (sesionVoz.ws.readyState === WebSocket.OPEN) {
-      sesionVoz.ws.close();
-    } else {
-      finalizarSesionVoz(null);
-    }
+    if (sesionVoz.ws.readyState === WebSocket.OPEN) sesionVoz.ws.close();
+    else finalizarSesionVoz(null);
   }, TIMEOUT_INACTIVIDAD_MS);
 }
 
 function detenerCapturaVoz() {
-  // Suelta el boton: deja de mandar audio nuevo y avisa "fin_de_audio", pero NO cierra
-  // el socket -- si lo cerraramos aqui, matariamos la sesion antes de que el modelo
-  // responda (ese fue el bug que reporto el usuario en la primera prueba).
+  // Sueltas el boton: deja de mandar audio nuevo y avisa "fin_de_audio", pero NO
+  // cierra el socket — cerrarlo aqui mataria la sesion antes de que el modelo
+  // responda (fue el bug de la primera prueba en navegador).
   if (!sesionVoz || !sesionVoz.grabando) return;
   sesionVoz.grabando = false;
   sesionVoz.nodoCaptura.port.onmessage = null;
   sesionVoz.streamMic.getTracks().forEach((pista) => pista.stop());
-  botonMic.classList.remove("grabando");
-  botonMic.disabled = true; // evita un segundo clic mientras se espera la respuesta
+  mostrarBarraGrabacion(false);
+  botonMic.disabled = true; // evita un segundo clic mientras llega la respuesta
+  estado("Pensando");
   if (sesionVoz.ws.readyState === WebSocket.OPEN) {
     sesionVoz.ws.send(JSON.stringify({ tipo: "fin_de_audio" }));
   }
@@ -389,45 +659,48 @@ function finalizarSesionVoz(codigo) {
   if (sesionVoz.nodoCaptura) sesionVoz.nodoCaptura.port.onmessage = null;
   if (sesionVoz.streamMic) sesionVoz.streamMic.getTracks().forEach((pista) => pista.stop());
   if (sesionVoz.audioContextEntrada) sesionVoz.audioContextEntrada.close().catch(() => {});
+  sesionVoz.mensajeActual?.hablando(false);
   sesionVoz = null;
-  botonMic.classList.remove("grabando");
+  mostrarBarraGrabacion(false);
 
-  // CLAVE: Nova Sonic genera el audio mucho mas rapido que en tiempo real, asi que
-  // cuando el turno "termina" del lado del servidor todavia quedan segundos de audio
-  // agendados sonando en el navegador. Cerrar el AudioContext aqui los destruiria y la
-  // respuesta se cortaria a media frase -- ese fue el bug que se veia como "se corta
-  // mientras seguia hablando". Esperamos a que termine de sonar.
+  // CLAVE: Nova Sonic genera el audio mucho mas rapido que en tiempo real, asi
+  // que cuando el turno "termina" del lado del servidor todavia quedan segundos
+  // agendados sonando en el navegador. Cerrar el AudioContext aqui los destruye
+  // y la respuesta se corta a media frase — fue el bug de "se corta mientras
+  // seguia hablando". Se espera a que acabe de sonar.
   const segundosRestantes = Math.max(0, siguienteInicio - audioContextSalida.currentTime);
   setTimeout(
     () => {
       audioContextSalida.close().catch(() => {});
       botonMic.disabled = false;
+      estado(null);
     },
-    (segundosRestantes + 0.3) * 1000
+    (segundosRestantes + 0.3) * 1000,
   );
 
   if (codigo === CODIGO_CIERRE_FALLBACK) {
     vozRealtimeDeshabilitada = true;
     if (habiaTurnoActivo) {
-      agregarBurbuja("Se perdió la conexión de voz en tiempo real. Intenta de nuevo.", "coach");
+      agregarMensaje("coach").escribir(
+        "Se cortó la conexión de voz en tiempo real. Inténtalo otra vez.",
+      );
       return;
     }
   }
 
-  // Si la sesion termino sin una sola respuesta (Nova Sonic mudo, cierre inesperado...),
-  // el usuario no puede quedarse sin contestacion: se reintenta por la cascada de
-  // siempre, que ya trae su propio gateway de modelos por dentro.
+  // Si la sesion termino sin una sola respuesta (Nova Sonic mudo, cierre
+  // inesperado...), el usuario no puede quedarse sin contestacion: se reintenta
+  // por la cascada, que trae su propio gateway de modelos por dentro.
   if (!recibioRespuesta) {
     if (modo === "texto") {
-      enviarMensaje({ texto: textoOriginal, burbujaUsuarioYaAgregada: true });
+      enviarMensaje({ texto: textoOriginal, mensajeUsuarioYaPuesto: true });
     } else if (codigo === CODIGO_CIERRE_FALLBACK) {
-      // Nova Sonic no llego ni a abrir sesion: grabamos por la via normal.
       iniciarGrabacionCascada();
     }
   }
 }
 
-botonMic.addEventListener("click", async () => {
+async function alternarMicrofono() {
   if (mediaRecorder && mediaRecorder.state === "recording") {
     mediaRecorder.stop();
     return;
@@ -437,71 +710,277 @@ botonMic.addEventListener("click", async () => {
     return;
   }
 
-  botonMic.classList.add("grabando");
   if (!vozRealtimeDeshabilitada) {
+    botonMic.disabled = true;
     const conectado = await iniciarVozTiempoReal().catch(() => false);
+    botonMic.disabled = false;
     if (conectado) return;
   }
-
-  botonMic.classList.remove("grabando");
   await iniciarGrabacionCascada();
-});
+}
 
-// --- Paneles de plan y perfil ---
+botonMic.addEventListener("click", alternarMicrofono);
+botonParar.addEventListener("click", alternarMicrofono);
+
+// =============================================================================
+// Paneles
+// =============================================================================
 
 const DIAS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
+const DIAS_CORTOS = ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"];
+// "Tu 42K" encima de una etiqueta que ya dice 42K era decir lo mismo dos veces.
+const NOMBRE_DISTANCIA = {
+  "5K": "Tu 5K",
+  "10K": "Tu 10K",
+  "21K": "Media maratón",
+  "42K": "Maratón",
+};
+const ICONO_SESION = {
+  facil: "zapatilla",
+  largo: "ruta",
+  series: "rayo",
+  tempo: "crono",
+  cruzado: "pulso",
+  descanso: "descanso",
+};
+
+const app = document.getElementById("pantalla-chat");
+const velo = document.getElementById("velo");
 const panelPlan = document.getElementById("panel-plan");
 const panelPerfil = document.getElementById("panel-perfil");
 const contenidoPlan = document.getElementById("contenido-plan");
 const formPerfil = document.getElementById("form-perfil");
 const mensajePerfil = document.getElementById("mensaje-perfil");
 
-function abrirPanel(panel) {
-  panel.hidden = false;
+// A partir de 1200px el plan cabe al lado sin apretar la conversacion, asi que
+// deja de ser un cajon que tapa y pasa a ser una columna fija.
+const anchoParaAnclar = window.matchMedia("(min-width: 1200px)");
+
+function planAnclado() {
+  return anchoParaAnclar.matches;
 }
 
-document.querySelectorAll(".cerrar-panel").forEach((boton) => {
-  boton.addEventListener("click", () => (boton.closest(".panel").hidden = true));
+function abrirPanel(panel) {
+  panel.hidden = false;
+  if (panel === panelPlan && planAnclado()) return;
+  velo.hidden = false;
+  // Dos fotogramas: el navegador tiene que pintar el estado cerrado antes de que
+  // la clase lo abra, o no hay transicion que animar.
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      panel.classList.add("abierto");
+      velo.classList.add("abierto");
+    }),
+  );
+}
+
+function cerrarPanel(panel) {
+  if (panel === panelPlan && planAnclado()) return;
+  panel.classList.remove("abierto");
+  velo.classList.remove("abierto");
+  const alTerminar = () => {
+    if (!panel.classList.contains("abierto")) {
+      panel.hidden = true;
+      velo.hidden = true;
+    }
+  };
+  panel.addEventListener("transitionend", alTerminar, { once: true });
+  setTimeout(alTerminar, 500); // por si la transicion no llega a dispararse
+  if (panel === panelPerfil) modoBienvenida(false);
+}
+
+function sincronizarAnclaje() {
+  const anclado = planAnclado();
+  app.classList.toggle("plan-anclado", anclado);
+  // Anclado, el plan no se "abre": ya está ahí. El botón del rail pasa a ser el
+  // indicador de sección visible, no un interruptor.
+  document
+    .querySelector('.boton-rail[data-abre="panel-plan"]')
+    ?.setAttribute("aria-current", String(anclado));
+  if (anclado) {
+    panelPlan.hidden = false;
+    panelPlan.classList.remove("abierto");
+    velo.classList.remove("abierto");
+    velo.hidden = true;
+    if (!contenidoPlan.childElementCount) cargarPlan({ abrir: false });
+  } else if (!panelPlan.classList.contains("abierto")) {
+    panelPlan.hidden = true;
+  }
+}
+
+anchoParaAnclar.addEventListener("change", sincronizarAnclaje);
+
+document.querySelectorAll("[data-abre]").forEach((boton) => {
+  boton.addEventListener("click", () => {
+    if (boton.dataset.abre !== "panel-plan") {
+      abrirPerfil();
+      return;
+    }
+    // Con el plan anclado el botón lo recarga y lo lleva arriba; abrirlo no
+    // tendría sentido porque ya está a la vista.
+    cargarPlan({ abrir: true });
+    if (planAnclado()) contenidoPlan.scrollTo({ top: 0, behavior: "smooth" });
+  });
 });
 
-function crear(etiqueta, clase, texto) {
-  const nodo = document.createElement(etiqueta);
-  if (clase) nodo.className = clase;
-  if (texto !== undefined) nodo.textContent = texto;
-  return nodo;
+document.querySelectorAll(".cerrar-panel").forEach((boton) => {
+  boton.addEventListener("click", () => cerrarPanel(boton.closest(".panel")));
+});
+
+velo.addEventListener("click", () => {
+  document.querySelectorAll(".panel.abierto").forEach(cerrarPanel);
+});
+
+document.addEventListener("keydown", (evento) => {
+  if (evento.key !== "Escape") return;
+  document.querySelectorAll(".panel.abierto:not(.modo-bienvenida)").forEach(cerrarPanel);
+});
+
+// --- Fechas ------------------------------------------------------------------
+
+function comoFecha(iso) {
+  // El backend manda YYYY-MM-DD. new Date("2026-11-08") se interpreta como UTC y
+  // en husos al oeste retrocede un dia: se construye a mano para que el domingo
+  // no aparezca como sabado.
+  const [anio, mes, dia] = iso.split("-").map(Number);
+  return new Date(anio, mes - 1, dia);
 }
 
 function fechaCorta(iso) {
-  // El backend manda YYYY-MM-DD. new Date("2026-11-08") se interpreta como UTC y en
-  // husos al oeste retrocede un dia: se construye a mano para que el domingo no
-  // aparezca como sabado.
-  const [anio, mes, dia] = iso.split("-").map(Number);
-  return new Date(anio, mes - 1, dia).toLocaleDateString("es-MX", { day: "numeric", month: "short" });
+  return comoFecha(iso).toLocaleDateString("es-MX", { day: "numeric", month: "short" });
+}
+
+function diasHasta(iso) {
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  return Math.round((comoFecha(iso) - hoy) / 86400000);
+}
+
+// =============================================================================
+// El plan
+// =============================================================================
+
+function nodoVacio(nombreIcono, titulo, detalle) {
+  const caja = crear("div", "vacio");
+  caja.appendChild(icono(nombreIcono));
+  caja.appendChild(crear("strong", null, titulo));
+  caja.appendChild(crear("p", null, detalle));
+  return caja;
+}
+
+/* La pista: una barra por semana, la altura es el volumen. El plan se cuenta
+   hacia atras desde la carrera, asi que la caida del final no es un fallo — es el
+   taper, y de un vistazo se ve donde estas y cuanto falta. */
+function nodoPista(plan) {
+  const pista = crear("section", "pista");
+
+  const titular = crear("div", "pista-titular");
+  const izquierda = crear("div");
+  izquierda.appendChild(crear("p", "eyebrow", "Tu objetivo"));
+  izquierda.appendChild(
+    crear("h3", null, plan.nombre_carrera || NOMBRE_DISTANCIA[plan.distancia] || plan.distancia),
+  );
+  titular.appendChild(izquierda);
+
+  const faltan = diasHasta(plan.fecha_carrera);
+  if (faltan >= 0) {
+    const cuenta = crear("div", "cuenta-atras");
+    cuenta.appendChild(crear("span", "numero", String(faltan)));
+    cuenta.appendChild(crear("span", "unidad", faltan === 1 ? "día" : "días"));
+    titular.appendChild(cuenta);
+  }
+  pista.appendChild(titular);
+
+  const maximo = Math.max(...plan.semanas.map((s) => s.volumen_km), 1);
+  const hoy = new Date().toISOString().slice(0, 10);
+  const carriles = crear("div", "carriles animar");
+
+  plan.semanas.forEach((semana, indice) => {
+    const carril = crear("span", "carril");
+    carril.style.height = `${Math.max(8, (semana.volumen_km / maximo) * 100)}%`;
+    carril.style.setProperty("--i", String(indice));
+
+    const fechas = semana.sesiones.map((s) => s.fecha);
+    const esActual = fechas.some((f) => f >= hoy) && fechas.some((f) => f <= hoy);
+    if (esActual) carril.classList.add("carril-actual");
+    else if (fechas.every((f) => f < hoy)) carril.classList.add("carril-hecha");
+    else if (semana.es_taper) carril.classList.add("carril-taper");
+    else if (semana.es_descarga) carril.classList.add("carril-descarga");
+
+    carril.title = `Semana ${semana.numero}: ${semana.volumen_km} km`;
+    carriles.appendChild(carril);
+  });
+  pista.appendChild(carriles);
+
+  const pie = crear("div", "pista-pie");
+  const semanas = crear("span", "meta");
+  semanas.append(icono("calendario"), crear("span", null, `${plan.semanas.length} semanas`));
+  const total = crear("span", "meta");
+  total.append(icono("ruta"), crear("span", "dato", `${plan.volumen_total_km} km`));
+  const meta = crear("span", "meta");
+  meta.append(icono("meta"), crear("span", "dato", fechaCorta(plan.fecha_carrera)));
+  pie.append(semanas, total, meta);
+  pista.appendChild(pie);
+
+  return pista;
+}
+
+function nodoProxima(sesion) {
+  const caja = crear("div", "proxima");
+  const marca = crear("span", "icono-sesion");
+  marca.appendChild(icono(ICONO_SESION[sesion.tipo] || "zapatilla"));
+  caja.appendChild(marca);
+
+  const texto = crear("div");
+  texto.appendChild(
+    crear("p", "cuando", `${DIAS[sesion.dia_semana]} ${fechaCorta(sesion.fecha)}`),
+  );
+  const descripcion = crear("p");
+  conMedidas(descripcion, sesion.descripcion);
+  texto.appendChild(descripcion);
+  if (sesion.ritmo_objetivo) {
+    texto.appendChild(crear("p", "nota", `A ritmo de ${sesion.ritmo_objetivo}`));
+  }
+  caja.appendChild(texto);
+  return caja;
 }
 
 function nodoSesion(sesion) {
-  const fila = crear("div", "sesion");
-  fila.appendChild(crear("span", "sesion-dia", DIAS[sesion.dia_semana]));
-  if (sesion.tipo === "descanso") {
-    fila.appendChild(crear("span", "sesion-descanso", "Descanso"));
-    return fila;
+  const fila = crear("div", `sesion sesion-${sesion.tipo}`);
+  fila.appendChild(crear("span", "sesion-dia", DIAS_CORTOS[sesion.dia_semana]));
+
+  const marca = crear("span", "icono-sesion");
+  marca.appendChild(icono(ICONO_SESION[sesion.tipo] || "zapatilla"));
+  fila.appendChild(marca);
+
+  const texto = crear("span", "sesion-texto");
+  if (sesion.tipo === "descanso") texto.textContent = "Descanso";
+  else conMedidas(texto, sesion.descripcion);
+  fila.appendChild(texto);
+
+  if (sesion.ritmo_objetivo) {
+    fila.appendChild(crear("span", "sesion-ritmo", sesion.ritmo_objetivo));
   }
-  fila.appendChild(crear("span", null, sesion.descripcion));
   return fila;
 }
 
-function nodoSemana(semana, esPrimeraAbierta) {
+function nodoSemana(semana, abierta) {
   const detalle = crear("details", "semana");
-  detalle.open = esPrimeraAbierta;
+  detalle.open = abierta;
+
   const resumen = crear("summary");
-  resumen.appendChild(crear("span", null, `Semana ${semana.numero}`));
-  const derecha = crear("span", null);
-  if (semana.es_taper) derecha.appendChild(crear("span", "etiqueta etiqueta-taper", "taper"));
-  else if (semana.es_descarga) derecha.appendChild(crear("span", "etiqueta etiqueta-descarga", "descarga"));
-  derecha.appendChild(crear("span", null, ` ${semana.volumen_km} km`));
-  resumen.appendChild(derecha);
+  resumen.appendChild(icono("caret-derecha", "caret"));
+  resumen.appendChild(crear("span", "num-semana", `Semana ${semana.numero}`));
+  if (semana.es_taper) resumen.appendChild(crear("span", "etiqueta etiqueta-taper", "taper"));
+  else if (semana.es_descarga) {
+    resumen.appendChild(crear("span", "etiqueta etiqueta-descarga", "descarga"));
+  }
+  resumen.appendChild(crear("span", "volumen", `${semana.volumen_km} km`));
   detalle.appendChild(resumen);
-  semana.sesiones.forEach((sesion) => detalle.appendChild(nodoSesion(sesion)));
+
+  const sesiones = crear("div", "sesiones");
+  semana.sesiones.forEach((sesion) => sesiones.appendChild(nodoSesion(sesion)));
+  detalle.appendChild(sesiones);
   return detalle;
 }
 
@@ -509,88 +988,94 @@ function pintarPlan(plan) {
   contenidoPlan.replaceChildren();
 
   if (!plan) {
-    const vacio = crear("p", "vacio");
-    vacio.textContent =
-      "Todavía no tienes un plan. Dile a Koda qué carrera quieres correr y para cuándo, y te lo arma.";
-    contenidoPlan.appendChild(vacio);
+    contenidoPlan.appendChild(
+      nodoVacio(
+        "meta",
+        "Todavía no tienes plan",
+        "Dile a Koda qué carrera quieres correr y para cuándo. Te lo arma en el momento.",
+      ),
+    );
     return;
   }
 
-  const resumen = crear("div", "resumen-plan");
-  resumen.appendChild(crear("h3", null, plan.nombre_carrera || `Tu ${plan.distancia}`));
-  resumen.appendChild(
-    crear(
-      "p",
-      "aviso",
-      `${plan.distancia} el ${fechaCorta(plan.fecha_carrera)} · ${plan.semanas.length} semanas · ` +
-        `${plan.volumen_total_km} km en total`,
-    ),
-  );
+  contenidoPlan.appendChild(nodoPista(plan));
+
+  if (plan.proxima_sesion) contenidoPlan.appendChild(nodoProxima(plan.proxima_sesion));
 
   // El plan se cuenta hacia atras desde la carrera, asi que su arranque suele caer
   // unos dias por delante. Decirlo evita que parezca un error de fechas.
   const hoy = new Date().toISOString().slice(0, 10);
   if (plan.fecha_inicio > hoy) {
-    const nota = crear("p", "aviso");
-    nota.appendChild(crear("span", "destacado", `Arranca el ${fechaCorta(plan.fecha_inicio)}. `));
-    nota.appendChild(
+    const nota = crear("p", "nota-destacada");
+    nota.appendChild(icono("calendario"));
+    const texto = crear("span");
+    texto.appendChild(crear("strong", null, `Arranca el ${fechaCorta(plan.fecha_inicio)}. `));
+    texto.appendChild(
       document.createTextNode(
-        "El plan se cuenta hacia atrás desde la carrera para que la bajada de carga " +
-          "caiga justo antes. Hasta entonces, rodajes suaves y sin prisa.",
+        "El plan se cuenta hacia atrás desde la carrera para que la bajada de carga caiga " +
+          "justo antes. Hasta entonces, rodajes suaves y sin prisa.",
       ),
     );
-    resumen.appendChild(nota);
+    nota.appendChild(texto);
+    contenidoPlan.appendChild(nota);
   }
 
-  if (plan.proxima_sesion) {
-    const proxima = crear("p", null);
-    proxima.appendChild(crear("span", "destacado", "Lo siguiente: "));
-    proxima.appendChild(
-      document.createTextNode(
-        `${DIAS[plan.proxima_sesion.dia_semana]} ${fechaCorta(plan.proxima_sesion.fecha)} — ` +
-          plan.proxima_sesion.descripcion,
-      ),
-    );
-    resumen.appendChild(proxima);
-  }
-
+  const bloqueZonas = crear("section", "bloque");
+  bloqueZonas.appendChild(crear("h4", null, "Tus ritmos"));
   const zonas = crear("ul", "zonas");
   Object.entries(plan.zonas).forEach(([nombre, ritmo]) => {
     const item = crear("li");
-    item.appendChild(crear("span", null, nombre));
-    item.appendChild(document.createTextNode(ritmo));
+    item.appendChild(crear("span", "nombre-zona", nombre));
+    item.appendChild(crear("span", "dato", ritmo));
     zonas.appendChild(item);
   });
-  resumen.appendChild(zonas);
-
+  bloqueZonas.appendChild(zonas);
   if (plan.ritmos_estimados) {
-    resumen.appendChild(
-      crear("p", "aviso", "Ritmos estimados: en cuanto registres una marca real, los ajusto."),
+    bloqueZonas.appendChild(
+      crear("p", "letra-chica", "Estimados. En cuanto registres una marca real, los ajusto."),
     );
   }
-  plan.notas.forEach((nota) => resumen.appendChild(crear("p", "aviso", nota)));
-  contenidoPlan.appendChild(resumen);
+  contenidoPlan.appendChild(bloqueZonas);
+
+  plan.notas.forEach((texto) => {
+    const nota = crear("p", "nota-destacada");
+    nota.appendChild(icono("info"));
+    nota.appendChild(crear("span", null, texto));
+    contenidoPlan.appendChild(nota);
+  });
 
   const semanaDeLaProxima = plan.proxima_sesion
     ? plan.semanas.find((s) => s.sesiones.some((x) => x.fecha === plan.proxima_sesion.fecha))
     : null;
+  const semanas = crear("div", "semanas");
   plan.semanas.forEach((semana) =>
-    contenidoPlan.appendChild(nodoSemana(semana, semana === semanaDeLaProxima)),
+    semanas.appendChild(nodoSemana(semana, semana === semanaDeLaProxima)),
   );
+  contenidoPlan.appendChild(semanas);
 }
 
-async function cargarPlan() {
-  abrirPanel(panelPlan);
-  contenidoPlan.replaceChildren(crear("p", "vacio", "Cargando…"));
+async function cargarPlan({ abrir = true } = {}) {
+  if (abrir) abrirPanel(panelPlan);
+
+  // Esqueleto con la forma de lo que va a llegar, no una ruleta: cuando el
+  // contenido aparece no salta nada de sitio.
+  const esqueleto = crear("div", "esqueleto");
+  esqueleto.style.height = "190px";
+  contenidoPlan.replaceChildren(esqueleto);
+
   try {
     const resp = await fetch("/api/plan");
     pintarPlan(resp.ok ? await resp.json() : null);
   } catch {
-    contenidoPlan.replaceChildren(crear("p", "vacio", "No pudimos cargar tu plan. Intenta otra vez."));
+    contenidoPlan.replaceChildren(
+      nodoVacio("alerta", "No pude cargar tu plan", "Revisa tu conexión e inténtalo otra vez."),
+    );
   }
 }
 
-document.getElementById("boton-plan").addEventListener("click", cargarPlan);
+// =============================================================================
+// Perfil
+// =============================================================================
 
 // El tiempo se teclea como se dice ("25:00", "1:42:30"); la API trabaja en segundos.
 function aSegundos(texto) {
@@ -619,7 +1104,6 @@ const camposPerfil = {
   marca_distancia_km: document.getElementById("perfil-marca-km"),
 };
 const campoMarcaTiempo = document.getElementById("perfil-marca-tiempo");
-
 const introPerfil = document.getElementById("intro-perfil");
 const saltarPerfil = document.getElementById("saltar-perfil");
 
@@ -638,19 +1122,41 @@ function modoBienvenida(activo) {
   panelPerfil.classList.toggle("modo-bienvenida", activo);
   introPerfil.hidden = !activo;
   saltarPerfil.hidden = !activo;
-  // En la bienvenida no se enseñan: primero lo minimo para poder entrenar.
+  // En la bienvenida no se enseñan: primero lo mínimo para poder entrenar.
   if (activo) seccionAvisos.hidden = true;
 }
 
-function cerrarPerfil() {
-  panelPerfil.hidden = true;
+saltarPerfil.addEventListener("click", () => cerrarPanel(panelPerfil));
+
+async function abrirPerfil() {
   modoBienvenida(false);
+  abrirPanel(panelPerfil);
+  mensajePerfil.hidden = true;
+  try {
+    await rellenarPerfil();
+    await cargarAvisos();
+  } catch {
+    /* el formulario se queda vacio: se puede rellenar igual */
+  }
 }
 
-saltarPerfil.addEventListener("click", cerrarPerfil);
+async function pedirPerfilSiHaceFalta() {
+  try {
+    const perfil = await rellenarPerfil();
+    // Sin nivel ni dias disponibles no se puede calcular nada util. El nombre y
+    // la edad son bonitos de tener; estos dos entran en la cuenta.
+    if (!perfil || perfil.nivel || perfil.dias_disponibles) return;
+    mensajePerfil.hidden = true;
+    modoBienvenida(true);
+    abrirPanel(panelPerfil);
+  } catch {
+    /* si no se puede consultar el perfil, se entra al chat sin mas */
+  }
+}
 
-// El navegador ya sabe en qué huso estás; preguntarlo en un desplegable sería hacerte
-// trabajo que no hace falta. De este dato depende que un aviso de las 6 llegue a las 6.
+// El navegador ya sabe en qué huso estás; preguntarlo en un desplegable sería
+// hacerte trabajo que no hace falta. De este dato depende que un aviso de las 6
+// llegue a las 6.
 async function avisarDeLaZonaHoraria() {
   try {
     const zona = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -667,16 +1173,68 @@ async function avisarDeLaZonaHoraria() {
   }
 }
 
-// --- Recordatorios ---
+formPerfil.addEventListener("submit", async (evento) => {
+  evento.preventDefault();
+  const boton = formPerfil.querySelector("button[type=submit]");
+  conCargador(boton, true);
+
+  // Solo se mandan los campos con valor: null en la API significa "no me lo has
+  // dicho", nunca "bórralo".
+  const cuerpo = {};
+  Object.entries(camposPerfil).forEach(([campo, input]) => {
+    const valor = input.value.trim();
+    if (valor) cuerpo[campo] = input.type === "number" ? Number(valor) : valor;
+  });
+
+  // Una marca a medias no sirve: el ritmo sale de dividir tiempo entre distancia,
+  // asi que con una sola de las dos el plan seguiria con ritmos estimados y el
+  // runner creeria que ya dio su dato.
+  const segundos = aSegundos(campoMarcaTiempo.value);
+  const hayDistancia = Boolean(cuerpo.marca_distancia_km);
+  if (hayDistancia !== Boolean(segundos)) {
+    mensajePerfil.textContent = hayDistancia
+      ? "Falta el tiempo de esa marca: sin él no puedo calcular tus ritmos."
+      : "¿Sobre qué distancia es ese tiempo?";
+    mensajePerfil.hidden = false;
+    conCargador(boton, false);
+    return;
+  }
+  if (segundos) cuerpo.marca_tiempo_seg = segundos;
+
+  try {
+    const resp = await fetch("/api/perfil", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cuerpo),
+    });
+    mensajePerfil.textContent = resp.ok
+      ? "Guardado. Con esto te ajusto mejor los ritmos."
+      : "No pudimos guardarlo. Revisa los datos e inténtalo otra vez.";
+    // En la bienvenida, guardar es la puerta al chat: se deja leer el mensaje y
+    // se pasa.
+    if (resp.ok && panelPerfil.classList.contains("modo-bienvenida")) {
+      setTimeout(() => cerrarPanel(panelPerfil), 900);
+    }
+  } catch {
+    mensajePerfil.textContent = "No pudimos guardarlo. Inténtalo otra vez.";
+  } finally {
+    mensajePerfil.hidden = false;
+    conCargador(boton, false);
+  }
+});
+
+// =============================================================================
+// Recordatorios
+// =============================================================================
 
 const seccionAvisos = document.getElementById("seccion-avisos");
 const listaAvisos = document.getElementById("lista-avisos");
 const mensajeAvisos = document.getElementById("mensaje-avisos");
 
-const NOMBRE_DEL_AVISO = {
-  diario: "Qué me toca hoy",
-  checkin: "¿Saliste hoy?",
-  semanal: "Resumen del domingo",
+const AVISOS = {
+  diario: { nombre: "Qué me toca hoy", icono: "rayo" },
+  checkin: { nombre: "¿Saliste hoy?", icono: "luna" },
+  semanal: { nombre: "Resumen del domingo", icono: "calendario" },
 };
 
 async function guardarAviso(tipo, hora, activo) {
@@ -695,21 +1253,34 @@ async function guardarAviso(tipo, hora, activo) {
 }
 
 function nodoAviso(aviso) {
+  const definicion = AVISOS[aviso.tipo] || { nombre: aviso.tipo, icono: "campana" };
   const fila = crear("div", "aviso");
+
+  const marca = crear("span", "icono-aviso");
+  marca.appendChild(icono(definicion.icono));
+  fila.appendChild(marca);
 
   const activo = document.createElement("input");
   activo.type = "checkbox";
   activo.checked = aviso.activo;
   activo.id = `aviso-${aviso.tipo}`;
 
+  const texto = crear("div", "aviso-texto");
   const etiqueta = document.createElement("label");
   etiqueta.htmlFor = activo.id;
-  etiqueta.textContent = NOMBRE_DEL_AVISO[aviso.tipo] || aviso.tipo;
+  etiqueta.textContent = definicion.nombre;
+  texto.appendChild(etiqueta);
+  fila.appendChild(texto);
 
   const hora = document.createElement("input");
   hora.type = "time";
   hora.value = aviso.hora_local;
   hora.disabled = !aviso.activo;
+  fila.appendChild(hora);
+
+  const interruptor = crear("span", "interruptor");
+  interruptor.append(activo, crear("span", "pista-interruptor"));
+  fila.appendChild(interruptor);
 
   activo.addEventListener("change", () => {
     hora.disabled = !activo.checked;
@@ -717,7 +1288,6 @@ function nodoAviso(aviso) {
   });
   hora.addEventListener("change", () => guardarAviso(aviso.tipo, hora.value, activo.checked));
 
-  fila.append(activo, etiqueta, hora);
   return fila;
 }
 
@@ -732,79 +1302,5 @@ async function cargarAvisos() {
     seccionAvisos.hidden = true;
   }
 }
-
-async function pedirPerfilSiHaceFalta() {
-  try {
-    const perfil = await rellenarPerfil();
-    // Sin nivel ni dias disponibles no se puede generar nada util. El nombre y la edad
-    // son bonitos de tener; estos dos son los que entran en el calculo.
-    if (!perfil || perfil.nivel || perfil.dias_disponibles) return;
-    mensajePerfil.hidden = true;
-    modoBienvenida(true);
-    abrirPanel(panelPerfil);
-  } catch {
-    /* si no se puede consultar el perfil, se entra al chat sin mas */
-  }
-}
-
-document.getElementById("boton-perfil").addEventListener("click", async () => {
-  modoBienvenida(false);
-  abrirPanel(panelPerfil);
-  mensajePerfil.hidden = true;
-  try {
-    await rellenarPerfil();
-    await cargarAvisos();
-  } catch {
-    /* el formulario se queda vacio: se puede rellenar igual */
-  }
-});
-
-formPerfil.addEventListener("submit", async (evento) => {
-  evento.preventDefault();
-  const boton = formPerfil.querySelector("button[type=submit]");
-  boton.disabled = true;
-
-  // Solo se mandan los campos con valor: null en la API significa "no me lo has
-  // dicho", nunca "borralo".
-  const cuerpo = {};
-  Object.entries(camposPerfil).forEach(([campo, input]) => {
-    const valor = input.value.trim();
-    if (valor) cuerpo[campo] = input.type === "number" ? Number(valor) : valor;
-  });
-  // Una marca a medias no sirve para nada: el ritmo sale de dividir tiempo entre
-  // distancia, asi que con una sola de las dos el plan seguiria con ritmos estimados
-  // y el runner creeria que ya dio su dato.
-  const segundos = aSegundos(campoMarcaTiempo.value);
-  const hayDistancia = Boolean(cuerpo.marca_distancia_km);
-  if (hayDistancia !== Boolean(segundos)) {
-    mensajePerfil.textContent = hayDistancia
-      ? "Falta el tiempo de esa marca: sin él no puedo calcular tus ritmos."
-      : "¿Sobre qué distancia es ese tiempo?";
-    mensajePerfil.hidden = false;
-    boton.disabled = false;
-    return;
-  }
-  if (segundos) cuerpo.marca_tiempo_seg = segundos;
-
-  try {
-    const resp = await fetch("/api/perfil", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(cuerpo),
-    });
-    mensajePerfil.textContent = resp.ok
-      ? "Guardado. Con esto te ajusto mejor los ritmos."
-      : "No pudimos guardarlo. Revisa los datos e intenta otra vez.";
-    // En la bienvenida, guardar es la puerta al chat: se deja leer el mensaje y se pasa.
-    if (resp.ok && panelPerfil.classList.contains("modo-bienvenida")) {
-      setTimeout(cerrarPerfil, 900);
-    }
-  } catch {
-    mensajePerfil.textContent = "No pudimos guardarlo. Intenta otra vez.";
-  } finally {
-    mensajePerfil.hidden = false;
-    boton.disabled = false;
-  }
-});
 
 init();
