@@ -21,6 +21,9 @@ pydantic-settings>=2.6
 python-dotenv>=1.0
 pyjwt>=2.9
 
+# Recordatorios. 3.x y no 4.x: la 4 sigue en pre-release y cambia la API entera.
+apscheduler>=3.10,<4
+
 # Tests
 pytest>=8.3
 pytest-asyncio>=0.24

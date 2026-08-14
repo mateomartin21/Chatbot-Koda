@@ -12,6 +12,7 @@ from tests.fakes.repos import (
     InMemoryConversacionRepo,
     InMemoryMemoriaRepo,
     InMemoryPlanRepo,
+    InMemoryRecordatorioRepo,
     InMemoryRunnerRepo,
     InMemoryTokenAccesoRepo,
 )
@@ -25,6 +26,7 @@ async def repos() -> deps.Repos:
         planes=InMemoryPlanRepo(),
         conversaciones=InMemoryConversacionRepo(),
         memoria=InMemoryMemoriaRepo(),
+        recordatorios=InMemoryRecordatorioRepo(),
     )
 
 

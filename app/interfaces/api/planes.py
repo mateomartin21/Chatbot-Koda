@@ -20,7 +20,14 @@ from app.application.planes import (
 from app.domain.models import DatosPerfil, Runner
 from app.domain.training.modelos import PlanActivo, PlanNoViable, SesionProgramada, ValorInvalido
 from app.domain.training.paces import Ritmo, ZonasRitmo
-from app.interfaces.api.deps import Repos, get_current_runner, get_repos
+from app.infrastructure.scheduler.apscheduler_adapter import APSchedulerAvisos
+from app.interfaces.api.deps import (
+    Repos,
+    get_current_runner,
+    get_repos,
+    get_scheduler,
+)
+from app.interfaces.avisos import programar_para
 
 router = APIRouter(prefix="/api", tags=["planes"])
 
@@ -65,12 +72,16 @@ class PerfilRespuesta(BaseModel):
     edad: int | None
     nivel: str | None
     dias_disponibles: int | None
+    zona_horaria: str | None
     marca_distancia_km: float | None
     marca_tiempo_seg: float | None
 
 
 class PerfilPeticion(BaseModel):
     nombre: str | None = None
+    # La manda el navegador solo: nadie deberia elegir su huso en un desplegable
+    # cuando el aparato ya lo sabe. De aqui sale la hora a la que llegan los avisos.
+    zona_horaria: str | None = Field(None, max_length=64)
     edad: int | None = Field(None, ge=10, le=100)
     nivel: str | None = None
     dias_disponibles: int | None = Field(None, ge=2, le=7)
@@ -153,6 +164,7 @@ async def ver_perfil(runner: Runner = Depends(get_current_runner)) -> PerfilResp
         edad=runner.edad,
         nivel=runner.nivel,
         dias_disponibles=runner.dias_disponibles,
+        zona_horaria=runner.zona_horaria,
         marca_distancia_km=runner.marca_distancia_km,
         marca_tiempo_seg=runner.marca_tiempo_seg,
     )
@@ -163,8 +175,13 @@ async def guardar_perfil(
     peticion: PerfilPeticion,
     runner: Runner = Depends(get_current_runner),
     repos: Repos = Depends(get_repos),
+    scheduler: APSchedulerAvisos = Depends(get_scheduler),
 ) -> PerfilRespuesta:
     actualizado = await actualizar_perfil(runner, DatosPerfil(**peticion.model_dump()), repos.runners)
+    if peticion.zona_horaria and peticion.zona_horaria != runner.zona_horaria:
+        # Se movio de huso (o lo dijo por primera vez): los avisos ya programados
+        # apuntan a la hora vieja y hay que recalcularlos.
+        await programar_para(actualizado, repos.recordatorios, scheduler)
     return await ver_perfil(actualizado)
 
 

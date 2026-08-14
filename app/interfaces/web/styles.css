@@ -236,6 +236,45 @@ select {
   display: none;
 }
 
+.avisos {
+  margin-top: var(--espacio-lg);
+  padding-top: var(--espacio-md);
+  border-top: 1px solid var(--color-borde);
+}
+
+.avisos h3 {
+  margin: 0 0 var(--espacio-sm);
+  font-size: 1rem;
+}
+
+.aviso {
+  display: flex;
+  align-items: center;
+  gap: var(--espacio-sm);
+  padding: var(--espacio-sm) 0;
+  font-size: 0.9rem;
+}
+
+.aviso label {
+  flex: 1;
+  text-align: left;
+  color: var(--color-texto);
+}
+
+.aviso input[type="time"] {
+  min-height: 38px;
+  width: 7.5rem;
+  flex-shrink: 0;
+}
+
+.aviso input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  min-height: 0;
+  flex-shrink: 0;
+  accent-color: var(--color-acento);
+}
+
 .resumen-plan {
   display: flex;
   flex-direction: column;

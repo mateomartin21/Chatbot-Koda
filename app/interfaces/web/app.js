@@ -21,6 +21,7 @@ async function init() {
       return;
     }
     mostrarChat();
+    await avisarDeLaZonaHoraria();
     // Correo -> perfil -> chat. Un runner del que no se sabe nada solo puede recibir
     // ritmos estimados, y de los ritmos sale el plan entero: preguntarlo despues es
     // preguntarlo tarde.
@@ -637,6 +638,8 @@ function modoBienvenida(activo) {
   panelPerfil.classList.toggle("modo-bienvenida", activo);
   introPerfil.hidden = !activo;
   saltarPerfil.hidden = !activo;
+  // En la bienvenida no se enseñan: primero lo minimo para poder entrenar.
+  if (activo) seccionAvisos.hidden = true;
 }
 
 function cerrarPerfil() {
@@ -645,6 +648,90 @@ function cerrarPerfil() {
 }
 
 saltarPerfil.addEventListener("click", cerrarPerfil);
+
+// El navegador ya sabe en qué huso estás; preguntarlo en un desplegable sería hacerte
+// trabajo que no hace falta. De este dato depende que un aviso de las 6 llegue a las 6.
+async function avisarDeLaZonaHoraria() {
+  try {
+    const zona = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (!zona) return;
+    const perfil = await (await fetch("/api/perfil")).json();
+    if (perfil.zona_horaria === zona) return;
+    await fetch("/api/perfil", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ zona_horaria: zona }),
+    });
+  } catch {
+    /* sin zona horaria los avisos usan la de México: molesto, no roto */
+  }
+}
+
+// --- Recordatorios ---
+
+const seccionAvisos = document.getElementById("seccion-avisos");
+const listaAvisos = document.getElementById("lista-avisos");
+const mensajeAvisos = document.getElementById("mensaje-avisos");
+
+const NOMBRE_DEL_AVISO = {
+  diario: "Qué me toca hoy",
+  checkin: "¿Saliste hoy?",
+  semanal: "Resumen del domingo",
+};
+
+async function guardarAviso(tipo, hora, activo) {
+  mensajeAvisos.hidden = true;
+  try {
+    const resp = await fetch("/api/recordatorios", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tipo, hora_local: hora, activo }),
+    });
+    mensajeAvisos.textContent = resp.ok ? "Guardado." : "No pudimos guardarlo.";
+  } catch {
+    mensajeAvisos.textContent = "No pudimos guardarlo.";
+  }
+  mensajeAvisos.hidden = false;
+}
+
+function nodoAviso(aviso) {
+  const fila = crear("div", "aviso");
+
+  const activo = document.createElement("input");
+  activo.type = "checkbox";
+  activo.checked = aviso.activo;
+  activo.id = `aviso-${aviso.tipo}`;
+
+  const etiqueta = document.createElement("label");
+  etiqueta.htmlFor = activo.id;
+  etiqueta.textContent = NOMBRE_DEL_AVISO[aviso.tipo] || aviso.tipo;
+
+  const hora = document.createElement("input");
+  hora.type = "time";
+  hora.value = aviso.hora_local;
+  hora.disabled = !aviso.activo;
+
+  activo.addEventListener("change", () => {
+    hora.disabled = !activo.checked;
+    guardarAviso(aviso.tipo, hora.value, activo.checked);
+  });
+  hora.addEventListener("change", () => guardarAviso(aviso.tipo, hora.value, activo.checked));
+
+  fila.append(activo, etiqueta, hora);
+  return fila;
+}
+
+async function cargarAvisos() {
+  try {
+    const resp = await fetch("/api/recordatorios");
+    if (!resp.ok) return;
+    const avisos = await resp.json();
+    listaAvisos.replaceChildren(...avisos.map(nodoAviso));
+    seccionAvisos.hidden = avisos.length === 0;
+  } catch {
+    seccionAvisos.hidden = true;
+  }
+}
 
 async function pedirPerfilSiHaceFalta() {
   try {
@@ -666,6 +753,7 @@ document.getElementById("boton-perfil").addEventListener("click", async () => {
   mensajePerfil.hidden = true;
   try {
     await rellenarPerfil();
+    await cargarAvisos();
   } catch {
     /* el formulario se queda vacio: se puede rellenar igual */
   }

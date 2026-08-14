@@ -2,7 +2,8 @@
 
 import unicodedata
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, time
+from enum import Enum
 from uuid import UUID
 
 
@@ -79,6 +80,29 @@ class Hecho:
     confianza: float = 1.0
     vigente: bool = True
     creado_en: datetime | None = None
+
+
+class TipoRecordatorio(Enum):
+    DIARIO = "diario"  # por la mañana: qué te toca hoy
+    CHECKIN = "checkin"  # por la noche: ¿saliste?
+    SEMANAL = "semanal"  # resumen de la semana y lo que viene
+
+
+@dataclass(frozen=True)
+class Recordatorio:
+    """Cuándo quiere el runner que le escriban. La hora es SUYA, no del servidor.
+
+    Un aviso de las seis de la mañana que llega a las tres es peor que no mandarlo, y
+    el servidor puede estar en cualquier sitio — por eso se guarda la hora local junto
+    a la zona horaria del runner y la conversión se hace al programar el envío.
+    """
+
+    id: UUID
+    runner_id: UUID
+    tipo: TipoRecordatorio
+    hora_local: time
+    activo: bool = True
+    ultima_ejecucion: datetime | None = None
 
 
 @dataclass

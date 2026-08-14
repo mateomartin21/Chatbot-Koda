@@ -9,6 +9,7 @@ from app.application.auth.solicitar_enlace import solicitar_enlace
 from app.config import Settings
 from app.domain.models import Runner
 from app.domain.ports.email_port import EmailPort
+from app.infrastructure.scheduler.apscheduler_adapter import APSchedulerAvisos
 from app.interfaces.api.deps import (
     COOKIE_NAME,
     Repos,
@@ -16,8 +17,10 @@ from app.interfaces.api.deps import (
     get_current_runner,
     get_email_port,
     get_repos,
+    get_scheduler,
     get_settings,
 )
+from app.interfaces.avisos import alta_por_defecto, programar_para
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -52,10 +55,17 @@ async def canjear(
     token: str,
     repos: Repos = Depends(get_repos),
     settings: Settings = Depends(get_settings),
+    scheduler: APSchedulerAvisos = Depends(get_scheduler),
 ) -> Response:
     runner = await canjear_enlace(token, tokens=repos.tokens, runners=repos.runners)
     if runner is None:
         raise HTTPException(401, "Enlace invalido o caducado")
+
+    # Los recordatorios son opt-out, no opt-in: uno que hay que activar a mano no lo
+    # activa casi nadie, y son el punto extra del enunciado. Si ya los tenia (aunque
+    # estuvieran dados de baja) no se le tocan — darse de baja tiene que ser definitivo.
+    await alta_por_defecto(runner.id, repos.recordatorios)
+    await programar_para(runner, repos.recordatorios, scheduler)
 
     response = RedirectResponse(url="/", status_code=307)
     response.set_cookie(

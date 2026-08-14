@@ -23,6 +23,7 @@ from app.infrastructure.tts.polly import PollyTTS
 from app.infrastructure.voz_realtime.nova_sonic import NovaSonicRealtime
 
 _PROMPTS_DIR = Path(__file__).parent / "prompts"
+_PLANTILLAS_DIR = Path(__file__).parent / "infrastructure" / "email" / "plantillas"
 
 
 @dataclass
@@ -43,6 +44,7 @@ class Container:
     # descuido: ver el comentario de build_container.
     coach_voz_prompt: str
     prompt_extraccion_memoria: str
+    plantilla_recordatorio: str
 
 
 def build_container(settings: Settings | None = None) -> Container:
@@ -92,6 +94,7 @@ def build_container(settings: Settings | None = None) -> Container:
     # longitud. coach_voz.md dice lo mismo en un tercio del espacio.
     coach_voz_prompt = (_PROMPTS_DIR / "coach_voz.md").read_text(encoding="utf-8")
     prompt_extraccion_memoria = (_PROMPTS_DIR / "extraccion_memoria.md").read_text(encoding="utf-8")
+    plantilla_recordatorio = (_PLANTILLAS_DIR / "recordatorio.html").read_text(encoding="utf-8")
 
     return Container(
         settings=settings,
@@ -105,4 +108,5 @@ def build_container(settings: Settings | None = None) -> Container:
         coach_system_prompt=coach_system_prompt,
         coach_voz_prompt=coach_voz_prompt,
         prompt_extraccion_memoria=prompt_extraccion_memoria,
+        plantilla_recordatorio=plantilla_recordatorio,
     )

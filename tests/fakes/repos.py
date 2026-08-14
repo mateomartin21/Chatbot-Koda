@@ -2,14 +2,24 @@
 
 from collections.abc import Sequence
 from dataclasses import fields, replace
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, time
 from uuid import UUID, uuid4
 
-from app.domain.models import DatosPerfil, Hecho, Mensaje, Runner, TokenAcceso, normalizar_hecho
+from app.domain.models import (
+    DatosPerfil,
+    Hecho,
+    Mensaje,
+    Recordatorio,
+    Runner,
+    TipoRecordatorio,
+    TokenAcceso,
+    normalizar_hecho,
+)
 from app.domain.ports.repositories import (
     ConversacionRepo,
     MemoriaRepo,
     PlanRepo,
+    RecordatorioRepo,
     RunnerRepo,
     TokenAccesoRepo,
 )
@@ -153,3 +163,42 @@ class InMemoryMemoriaRepo(MemoriaRepo):
 
     async def vigentes(self, runner_id: UUID, limite: int = 25) -> list[Hecho]:
         return [h for h in reversed(self._por_runner.get(runner_id, [])) if h.vigente][:limite]
+
+
+class InMemoryRecordatorioRepo(RecordatorioRepo):
+    def __init__(self) -> None:
+        self._por_runner: dict[UUID, dict[TipoRecordatorio, Recordatorio]] = {}
+
+    async def de_runner(self, runner_id: UUID) -> list[Recordatorio]:
+        return list(self._por_runner.get(runner_id, {}).values())
+
+    async def guardar(
+        self, runner_id: UUID, tipo: TipoRecordatorio, hora_local: time, activo: bool
+    ) -> Recordatorio:
+        del_runner = self._por_runner.setdefault(runner_id, {})
+        anterior = del_runner.get(tipo)
+        recordatorio = Recordatorio(
+            id=anterior.id if anterior else uuid4(),
+            runner_id=runner_id,
+            tipo=tipo,
+            hora_local=hora_local,
+            activo=activo,
+            ultima_ejecucion=anterior.ultima_ejecucion if anterior else None,
+        )
+        del_runner[tipo] = recordatorio
+        return recordatorio
+
+    async def desactivar_todos(self, runner_id: UUID) -> int:
+        del_runner = self._por_runner.get(runner_id, {})
+        activos = [t for t, r in del_runner.items() if r.activo]
+        for tipo in activos:
+            del_runner[tipo] = replace(del_runner[tipo], activo=False)
+        return len(activos)
+
+    async def marcar_enviado(self, runner_id: UUID, tipo: TipoRecordatorio, cuando: datetime) -> None:
+        del_runner = self._por_runner.get(runner_id, {})
+        if tipo in del_runner:
+            del_runner[tipo] = replace(del_runner[tipo], ultima_ejecucion=cuando)
+
+    async def activos_de_todos(self) -> list[Recordatorio]:
+        return [r for des in self._por_runner.values() for r in des.values() if r.activo]

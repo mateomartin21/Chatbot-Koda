@@ -2,17 +2,27 @@
 
 from collections.abc import Sequence
 from dataclasses import fields
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, time
 from uuid import UUID, uuid4
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.models import DatosPerfil, Hecho, Mensaje, Runner, TokenAcceso, normalizar_hecho
+from app.domain.models import (
+    DatosPerfil,
+    Hecho,
+    Mensaje,
+    Recordatorio,
+    Runner,
+    TipoRecordatorio,
+    TokenAcceso,
+    normalizar_hecho,
+)
 from app.domain.ports.repositories import (
     ConversacionRepo,
     MemoriaRepo,
     PlanRepo,
+    RecordatorioRepo,
     RunnerRepo,
     TokenAccesoRepo,
 )
@@ -33,6 +43,7 @@ from app.infrastructure.persistence.orm import (
     MemoriaHechoORM,
     ObjetivoORM,
     PlanORM,
+    RecordatorioORM,
     RunnerORM,
     SesionORM,
     TokenAccesoORM,
@@ -464,3 +475,70 @@ class SqlMemoriaRepo(MemoriaRepo):
             )
             for f in filas
         ]
+
+
+# --- Recordatorios --------------------------------------------------------------
+
+
+def _recordatorio_a_dominio(fila: RecordatorioORM) -> Recordatorio:
+    return Recordatorio(
+        id=fila.id,
+        runner_id=fila.runner_id,
+        tipo=TipoRecordatorio(fila.tipo),
+        hora_local=fila.hora_local,
+        activo=fila.activo,
+        ultima_ejecucion=fila.ultima_ejecucion,
+    )
+
+
+class SqlRecordatorioRepo(RecordatorioRepo):
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def de_runner(self, runner_id: UUID) -> list[Recordatorio]:
+        stmt = select(RecordatorioORM).where(RecordatorioORM.runner_id == runner_id)
+        return [_recordatorio_a_dominio(f) for f in (await self._session.execute(stmt)).scalars()]
+
+    async def guardar(
+        self, runner_id: UUID, tipo: TipoRecordatorio, hora_local: time, activo: bool
+    ) -> Recordatorio:
+        stmt = select(RecordatorioORM).where(
+            RecordatorioORM.runner_id == runner_id,
+            RecordatorioORM.tipo == tipo.value,
+        )
+        fila = (await self._session.execute(stmt)).scalar_one_or_none()
+        if fila is None:
+            fila = RecordatorioORM(
+                id=uuid4(), runner_id=runner_id, tipo=tipo.value, hora_local=hora_local, activo=activo
+            )
+            self._session.add(fila)
+        else:
+            fila.hora_local = hora_local
+            fila.activo = activo
+        await self._session.commit()
+        await self._session.refresh(fila)
+        return _recordatorio_a_dominio(fila)
+
+    async def desactivar_todos(self, runner_id: UUID) -> int:
+        stmt = select(RecordatorioORM).where(
+            RecordatorioORM.runner_id == runner_id, RecordatorioORM.activo.is_(True)
+        )
+        filas = (await self._session.execute(stmt)).scalars().all()
+        for fila in filas:
+            fila.activo = False
+        if filas:
+            await self._session.commit()
+        return len(filas)
+
+    async def marcar_enviado(self, runner_id: UUID, tipo: TipoRecordatorio, cuando: datetime) -> None:
+        stmt = select(RecordatorioORM).where(
+            RecordatorioORM.runner_id == runner_id, RecordatorioORM.tipo == tipo.value
+        )
+        fila = (await self._session.execute(stmt)).scalar_one_or_none()
+        if fila is not None:
+            fila.ultima_ejecucion = cuando
+            await self._session.commit()
+
+    async def activos_de_todos(self) -> list[Recordatorio]:
+        stmt = select(RecordatorioORM).where(RecordatorioORM.activo.is_(True))
+        return [_recordatorio_a_dominio(f) for f in (await self._session.execute(stmt)).scalars()]

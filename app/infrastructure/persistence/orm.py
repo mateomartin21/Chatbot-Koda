@@ -1,10 +1,23 @@
 """Modelos SQLAlchemy. Reflejan el esquema de docs/contexto/02-DOMINIO-RUNNING.md §4."""
 
-from datetime import date, datetime
+from datetime import date, datetime, time
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import JSON, Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    Time,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -70,6 +83,26 @@ class MemoriaHechoORM(Base):
     confianza: Mapped[float] = mapped_column(Float, nullable=False, default=1.0)
     creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     vigente: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+
+class RecordatorioORM(Base):
+    __tablename__ = "recordatorios"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    runner_id: Mapped[UUID] = mapped_column(ForeignKey("runners.id"), nullable=False, index=True)
+    tipo: Mapped[str] = mapped_column(String, nullable=False)  # diario | checkin | semanal
+    # Hora LOCAL del runner, no UTC: la conversion se hace al programar el envio, con
+    # la zona horaria que tenga en ese momento. Guardarla ya convertida obligaria a
+    # recalcular todas las filas cada vez que alguien viaja o cambia el horario de verano.
+    hora_local: Mapped[time] = mapped_column(Time, nullable=False)
+    activo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    ultima_ejecucion: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        # Un recordatorio por tipo y runner: si no, dos filas "diario" mandan dos correos.
+        UniqueConstraint("runner_id", "tipo", name="uq_recordatorio_runner_tipo"),
+    )
 
 
 class ObjetivoORM(Base):

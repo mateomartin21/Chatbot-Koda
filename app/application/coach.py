@@ -12,7 +12,7 @@ El contexto que acompana a estas herramientas se ensambla en contexto.py.
 
 import json
 import logging
-from datetime import date
+from datetime import date, time
 
 from app.application.contexto import ReposDelCoach, perfil_hablado, plan_hablado
 from app.application.planes import (
@@ -21,7 +21,8 @@ from app.application.planes import (
     consultar_proxima_sesion,
     crear_plan,
 )
-from app.domain.models import DatosPerfil, Runner
+from app.application.recordatorios import descrito
+from app.domain.models import DatosPerfil, Runner, TipoRecordatorio
 from app.domain.ports.llm_port import EjecutorHerramientas, Herramienta, LlamadaHerramienta
 from app.domain.training.modelos import PlanNoViable, ValorInvalido
 from app.domain.training.paces import Ritmo
@@ -67,6 +68,23 @@ HERRAMIENTAS: tuple[Herramienta, ...] = (
         nombre="consultar_plan",
         descripcion="Devuelve el plan activo del runner y la siguiente sesion que le toca.",
         esquema={"type": "object", "properties": {}},
+    ),
+    Herramienta(
+        nombre="configurar_recordatorio",
+        descripcion=(
+            "Cambia la hora de un recordatorio por correo, lo activa o lo desactiva. "
+            "Usala cuando el runner diga cosas como 'avisame a las siete' o 'ya no me "
+            "mandes correos'. Sin argumentos, te dice como los tiene ahora."
+        ),
+        esquema={
+            "type": "object",
+            "properties": {
+                "tipo": {"type": "string", "enum": ["diario", "checkin", "semanal"]},
+                "hora": {"type": "integer", "minimum": 0, "maximum": 23},
+                "minuto": {"type": "integer", "minimum": 0, "maximum": 59},
+                "activo": {"type": "boolean"},
+            },
+        },
     ),
     Herramienta(
         nombre="guardar_datos_del_runner",
@@ -162,6 +180,39 @@ async def _consultar_plan(runner: Runner, repos: ReposDelCoach, hoy: date) -> st
     return plan_hablado(activo, proxima, hoy)
 
 
+async def _configurar_recordatorio(runner: Runner, repos: ReposDelCoach, argumentos: dict) -> str:
+    if repos.recordatorios is None:
+        return "Los recordatorios no estan disponibles ahora mismo."
+
+    actuales = await repos.recordatorios.de_runner(runner.id)
+    if "tipo" not in argumentos:
+        if not actuales:
+            return "Este runner no tiene ningun recordatorio configurado."
+        return "Asi los tiene: " + "; ".join(
+            f"{descrito(r)}{'' if r.activo else ' (desactivado)'}" for r in actuales
+        )
+
+    try:
+        tipo = TipoRecordatorio(str(argumentos["tipo"]))
+    except ValueError:
+        return "Los tipos validos son diario, checkin y semanal."
+
+    anterior = next((r for r in actuales if r.tipo is tipo), None)
+    hora = time(
+        hour=int(argumentos.get("hora", anterior.hora_local.hour if anterior else 6)),
+        minute=int(argumentos.get("minuto", anterior.hora_local.minute if anterior else 0)),
+    )
+    activo = bool(argumentos.get("activo", True))
+    guardado = await repos.recordatorios.guardar(runner.id, tipo, hora, activo)
+    if repos.reprogramar is not None:
+        # El cambio no sirve de nada si el aviso ya programado sigue apuntando a la
+        # hora vieja: hay que reprogramarlo en caliente.
+        await repos.reprogramar(runner)
+    if not activo:
+        return f"Desactivado: {descrito(guardado)}. Se lo confirmas al runner."
+    return f"Guardado: {descrito(guardado)}. Se lo confirmas al runner."
+
+
 async def _guardar_datos(runner: Runner, repos: ReposDelCoach, argumentos: dict) -> str:
     permitidos = {
         "nombre",
@@ -199,6 +250,8 @@ def ejecutor_para(runner: Runner, repos: ReposDelCoach, hoy: date | None = None)
             return await _consultar_plan(actual, repos, dia)
         if llamada.nombre == "guardar_datos_del_runner":
             return await _guardar_datos(actual, repos, llamada.argumentos)
+        if llamada.nombre == "configurar_recordatorio":
+            return await _configurar_recordatorio(actual, repos, llamada.argumentos)
         return f"No existe ninguna herramienta llamada {llamada.nombre}."
 
     return ejecutar

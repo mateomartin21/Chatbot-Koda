@@ -16,6 +16,7 @@ from tests.fakes.repos import (
     InMemoryConversacionRepo,
     InMemoryMemoriaRepo,
     InMemoryPlanRepo,
+    InMemoryRecordatorioRepo,
     InMemoryRunnerRepo,
     InMemoryTokenAccesoRepo,
 )
@@ -32,6 +33,7 @@ def _preparar(voz_fake: FakeVozRealtimePort, *, con_cookie: bool) -> TestClient:
         planes=InMemoryPlanRepo(),
         conversaciones=InMemoryConversacionRepo(),
         memoria=InMemoryMemoriaRepo(),
+        recordatorios=InMemoryRecordatorioRepo(),
     )
     app.dependency_overrides[deps.get_repos] = lambda: repos
     app.dependency_overrides[deps.get_voz_realtime_port] = lambda: voz_fake

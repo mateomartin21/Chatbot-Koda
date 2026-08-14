@@ -25,17 +25,20 @@ from app.domain.ports.voz_realtime_port import (
     TurnoTerminado,
     VozRealtimePort,
 )
+from app.infrastructure.scheduler.apscheduler_adapter import APSchedulerAvisos
 from app.interfaces.api.deps import (
     COOKIE_NAME,
     Repos,
     get_coach_voz_prompt,
     get_container,
     get_repos,
+    get_scheduler,
     get_settings,
     get_voz_realtime_port,
     lanzar_extraccion_de_memoria,
     runner_desde_token,
 )
+from app.interfaces.avisos import programar_para
 
 router = APIRouter(tags=["voz"])
 logger = logging.getLogger(__name__)
@@ -51,6 +54,7 @@ async def voz_realtime(
     settings: Settings = Depends(get_settings),
     voz: VozRealtimePort = Depends(get_voz_realtime_port),
     container: Container = Depends(get_container),
+    scheduler: APSchedulerAvisos = Depends(get_scheduler),
     # Prompt propio, corto (ver container.build_container): con el de texto, Nova Sonic
     # ignoraba instrucciones que tenia escritas literalmente delante.
     system_prompt: str = Depends(get_coach_voz_prompt),
@@ -68,6 +72,8 @@ async def voz_realtime(
         planes=repos.planes,
         conversaciones=repos.conversaciones,
         memoria=repos.memoria,
+        recordatorios=repos.recordatorios,
+        reprogramar=lambda r: programar_para(r, repos.recordatorios, scheduler),
     )
     try:
         # Mismas herramientas y mismo contexto que POST /api/mensajes: hablar y escribir

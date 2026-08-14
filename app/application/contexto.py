@@ -16,11 +16,18 @@ docs/contexto/03-MULTIUSUARIO-Y-SEGURIDAD.md §4.3 — y el sitio donde se audit
 cualquier sospecha de fuga entre usuarios.
 """
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import date
 
 from app.domain.models import Hecho, Mensaje, Runner
-from app.domain.ports.repositories import ConversacionRepo, MemoriaRepo, PlanRepo, RunnerRepo
+from app.domain.ports.repositories import (
+    ConversacionRepo,
+    MemoriaRepo,
+    PlanRepo,
+    RecordatorioRepo,
+    RunnerRepo,
+)
 from app.domain.training.modelos import Nivel, PlanActivo, SesionProgramada, TipoSesion
 
 _TURNOS_DE_LA_VENTANA = 10
@@ -52,6 +59,12 @@ class ReposDelCoach:
     planes: PlanRepo
     conversaciones: ConversacionRepo
     memoria: MemoriaRepo
+    # Opcionales: el contexto y las demas herramientas funcionan sin ellos, y hay
+    # llamadores (los tests del plan, la extraccion de memoria) que no los necesitan.
+    recordatorios: RecordatorioRepo | None = None
+    # Reprogramar es un efecto sobre el scheduler, no una consulta: se inyecta como
+    # funcion para que esta capa no sepa que existe APScheduler.
+    reprogramar: Callable[[Runner], Awaitable[None]] | None = None
 
 
 @dataclass(frozen=True)

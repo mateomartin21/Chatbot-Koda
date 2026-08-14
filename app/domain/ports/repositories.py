@@ -3,10 +3,18 @@ en la firma — ver docs/contexto/03-MULTIUSUARIO-Y-SEGURIDAD.md §4.1."""
 
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from datetime import date, datetime
+from datetime import date, datetime, time
 from uuid import UUID
 
-from app.domain.models import DatosPerfil, Hecho, Mensaje, Runner, TokenAcceso
+from app.domain.models import (
+    DatosPerfil,
+    Hecho,
+    Mensaje,
+    Recordatorio,
+    Runner,
+    TipoRecordatorio,
+    TokenAcceso,
+)
 from app.domain.training.modelos import Objetivo, PlanActivo, PlanEntrenamiento, SesionProgramada
 
 
@@ -105,3 +113,35 @@ class MemoriaRepo(ABC):
 
     @abstractmethod
     async def vigentes(self, runner_id: UUID, limite: int = 25) -> list[Hecho]: ...
+
+
+class RecordatorioRepo(ABC):
+    """Cuando escribirle a cada runner.
+
+    activos_de_todos() es la unica consulta del proyecto que cruza usuarios, y es
+    deliberada: el scheduler necesita saber a quien programar al arrancar. Devuelve
+    la AGENDA (a quien y a que hora), nunca datos personales — esos los vuelve a
+    cargar el caso de uso por runner_id cuando toca enviar. Ver
+    docs/contexto/03-MULTIUSUARIO-Y-SEGURIDAD.md §4.5.
+    """
+
+    @abstractmethod
+    async def de_runner(self, runner_id: UUID) -> list[Recordatorio]: ...
+
+    @abstractmethod
+    async def guardar(
+        self, runner_id: UUID, tipo: TipoRecordatorio, hora_local: time, activo: bool
+    ) -> Recordatorio:
+        """Crea o actualiza el recordatorio de ese tipo. Uno por tipo y runner."""
+        ...
+
+    @abstractmethod
+    async def desactivar_todos(self, runner_id: UUID) -> int:
+        """La baja. Devuelve cuantos se desactivaron."""
+        ...
+
+    @abstractmethod
+    async def marcar_enviado(self, runner_id: UUID, tipo: TipoRecordatorio, cuando: datetime) -> None: ...
+
+    @abstractmethod
+    async def activos_de_todos(self) -> list[Recordatorio]: ...

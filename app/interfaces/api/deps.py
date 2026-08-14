@@ -22,6 +22,7 @@ from app.domain.ports.repositories import (
     ConversacionRepo,
     MemoriaRepo,
     PlanRepo,
+    RecordatorioRepo,
     RunnerRepo,
     TokenAccesoRepo,
 )
@@ -32,9 +33,12 @@ from app.infrastructure.persistence.repos import (
     SqlConversacionRepo,
     SqlMemoriaRepo,
     SqlPlanRepo,
+    SqlRecordatorioRepo,
     SqlRunnerRepo,
     SqlTokenAccesoRepo,
 )
+from app.infrastructure.scheduler.apscheduler_adapter import APSchedulerAvisos
+from app.interfaces.avisos import crear_ejecutor
 
 COOKIE_NAME = "koda_session"
 
@@ -43,6 +47,15 @@ _container = build_container()
 
 def get_container() -> Container:
     return _container
+
+
+# El scheduler se crea una sola vez, igual que el contenedor: tiene estado (los avisos
+# programados) y crear uno por peticion los perderia.
+_scheduler = APSchedulerAvisos(crear_ejecutor(_container))
+
+
+def get_scheduler() -> APSchedulerAvisos:
+    return _scheduler
 
 
 def get_settings(container: Container = Depends(get_container)) -> Settings:
@@ -89,6 +102,7 @@ class Repos:
     planes: PlanRepo
     conversaciones: ConversacionRepo
     memoria: MemoriaRepo
+    recordatorios: RecordatorioRepo
 
 
 def get_repos(session: AsyncSession = Depends(get_session)) -> Repos:
@@ -98,6 +112,7 @@ def get_repos(session: AsyncSession = Depends(get_session)) -> Repos:
         planes=SqlPlanRepo(session),
         conversaciones=SqlConversacionRepo(session),
         memoria=SqlMemoriaRepo(session),
+        recordatorios=SqlRecordatorioRepo(session),
     )
 
 

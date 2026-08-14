@@ -14,6 +14,7 @@ from app.domain.models import Mensaje, Runner
 from app.domain.ports.llm_port import LLMPort
 from app.domain.ports.stt_port import STTPort
 from app.domain.ports.tts_port import TTSPort
+from app.infrastructure.scheduler.apscheduler_adapter import APSchedulerAvisos
 from app.interfaces.api.deps import (
     Repos,
     get_coach_system_prompt,
@@ -21,10 +22,12 @@ from app.interfaces.api.deps import (
     get_current_runner,
     get_llm_port,
     get_repos,
+    get_scheduler,
     get_stt_port,
     get_tts_port,
     lanzar_extraccion_de_memoria,
 )
+from app.interfaces.avisos import programar_para
 
 router = APIRouter(prefix="/api", tags=["mensajes"])
 
@@ -45,6 +48,7 @@ async def enviar_mensaje(
     system_prompt: str = Depends(get_coach_system_prompt),
     repos: Repos = Depends(get_repos),
     container: Container = Depends(get_container),
+    scheduler: APSchedulerAvisos = Depends(get_scheduler),
 ) -> MensajeRespuesta:
     audio_bytes = await audio.read() if audio is not None else None
     audio_mime = audio.content_type if audio is not None else None
@@ -54,6 +58,8 @@ async def enviar_mensaje(
         planes=repos.planes,
         conversaciones=repos.conversaciones,
         memoria=repos.memoria,
+        recordatorios=repos.recordatorios,
+        reprogramar=lambda r: programar_para(r, repos.recordatorios, scheduler),
     )
     contexto = await construir_contexto(runner, repos_coach)
     respuesta = await procesar_mensaje(
