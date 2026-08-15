@@ -51,3 +51,4 @@ Las negativas son obligatorias. Un ADR sin consecuencias negativas es publicidad
 | [018](ADR-018-koda-tiene-cara-y-la-app-se-instala.md) | Koda tiene cara, y la aplicación se instala en el móvil | Aceptado |
 | [019](ADR-019-una-instancia-y-caddy-para-el-https.md) | Una instancia EC2 con Caddy, y el HTTPS sin comprar dominio | Aceptado |
 | [020](ADR-020-nova-habla-y-sonnet-decide.md) | Nova Sonic habla, el modelo grande decide | Aceptado |
+| [021](ADR-021-una-sola-conversacion-por-runner.md) | Una sola conversación por runner, que sobrevive a cerrar la pestaña | Aceptado |

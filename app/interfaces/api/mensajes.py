@@ -3,6 +3,7 @@ nunca del formulario. Ver docs/contexto/03-MULTIUSUARIO-Y-SEGURIDAD.md §4.2."""
 
 import base64
 import logging
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 from pydantic import BaseModel
@@ -38,6 +39,45 @@ logger = logging.getLogger(__name__)
 class MensajeRespuesta(BaseModel):
     texto: str
     audio_base64: str | None
+
+
+class TurnoGuardado(BaseModel):
+    rol: str
+    contenido: str
+    modalidad: str
+    creado_en: datetime
+
+
+# Cuantos mensajes se devuelven al abrir la aplicacion. No es el mismo numero que la
+# ventana del modelo (10 turnos, contexto.py): esto es para que una persona reconozca
+# de que estaba hablando, y para eso hace falta ver mas. Sigue siendo un tope: el
+# runner que lleve un ano usando Koda no descarga su historial entero cada vez que
+# abre la pestaña.
+_MENSAJES_DEL_HISTORIAL = 40
+
+
+@router.get("/conversacion", response_model=list[TurnoGuardado])
+async def ver_conversacion(
+    runner: Runner = Depends(get_current_runner),
+    repos: Repos = Depends(get_repos),
+) -> list[TurnoGuardado]:
+    """Lo ultimo que os dijisteis, para pintarlo al abrir.
+
+    El hilo ya se guardaba — es lo que alimenta la memoria del coach — pero solo lo
+    leia el modelo. La persona volvia a abrir Koda y se encontraba una pantalla en
+    blanco, como si no se conocieran de nada. Cerrar la pestaña no deberia ser lo
+    mismo que empezar de cero.
+    """
+    mensajes = await repos.conversaciones.ultimos(runner.id, _MENSAJES_DEL_HISTORIAL)
+    return [
+        TurnoGuardado(
+            rol=m.rol,
+            contenido=m.contenido,
+            modalidad=m.modalidad,
+            creado_en=m.creado_en or datetime.now(UTC),
+        )
+        for m in mensajes
+    ]
 
 
 @router.post("/mensajes", response_model=MensajeRespuesta)

@@ -703,6 +703,37 @@ label {
   }
 }
 
+/* El historial no entra: ya estaba. Cuarenta mensajes animandose a la vez al abrir
+   la aplicacion serian una cascada de medio segundo antes de poder leer nada. */
+.burbujas.sin-entrada .mensaje {
+  animation: none;
+}
+
+/* Separador entre dias del historial. Una linea con la fecha encima: sin el, una
+   conversacion de hace tres semanas se lee como si acabara de pasar. */
+.separador-dia {
+  display: flex;
+  align-items: center;
+  gap: var(--e-3);
+  margin: var(--e-2) 0;
+  color: var(--bruma-honda);
+  font-size: 0.75rem;
+  text-transform: lowercase;
+}
+
+.separador-dia::before,
+.separador-dia::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--linea-tenue);
+}
+
+.separador-dia span {
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.08em;
+}
+
 .mensaje-usuario {
   flex-direction: row-reverse;
   align-self: flex-end;

@@ -151,6 +151,7 @@ docs/{contexto,adr}/
 | [018](docs/adr/ADR-018-koda-tiene-cara-y-la-app-se-instala.md) | Koda tiene cara, y la aplicación se instala en el móvil |
 | [019](docs/adr/ADR-019-una-instancia-y-caddy-para-el-https.md) | Una instancia EC2 con Caddy, y el HTTPS sin comprar dominio |
 | [020](docs/adr/ADR-020-nova-habla-y-sonnet-decide.md) | Nova Sonic habla, el modelo grande decide |
+| [021](docs/adr/ADR-021-una-sola-conversacion-por-runner.md) | Una sola conversación por runner, que sobrevive a cerrar la pestaña |
 
 Cada ADR incluye sus **consecuencias negativas**. Un ADR sin ellas es publicidad, no ingeniería.
 

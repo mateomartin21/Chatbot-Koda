@@ -130,6 +130,9 @@ async function init() {
     }
     mostrarChat();
     await avisarDeLaZonaHoraria();
+    // El hilo, antes que nada: si hay conversación anterior, la bienvenida sobra y
+    // enseñarla un instante para quitarla después es un parpadeo feo.
+    await cargarHistorial();
     // Correo -> perfil -> chat. De un runner del que no se sabe nada solo salen
     // ritmos estimados, y de los ritmos sale el plan entero: preguntarlo despues
     // es preguntarlo tarde.
@@ -227,6 +230,67 @@ function gesto(cual, duracionMs = 3200) {
 
 function alFinal() {
   burbujas.scrollTop = burbujas.scrollHeight;
+}
+
+/* Lo que os dijisteis la última vez.
+
+   El hilo ya se guardaba — es de donde sale la memoria del coach — pero solo lo leía
+   el modelo. Cerrabas la pestaña, volvías, y Koda te recibía con "Hola, soy Koda"
+   como si no os conocierais, mientras por dentro se acordaba de todo. Esa
+   contradicción es peor que no tener memoria: parece que se le olvidó.
+
+   Si falla, no se dice nada y se enseña la bienvenida: perder el historial es
+   molesto, no poder escribir es descalificante. */
+async function cargarHistorial() {
+  let turnos = [];
+  try {
+    const resp = await fetch("/api/conversacion");
+    if (!resp.ok) return;
+    turnos = await resp.json();
+  } catch {
+    return;
+  }
+  if (!turnos.length) return;
+
+  let diaPintado = null;
+  turnos.forEach((turno) => {
+    const dia = turno.creado_en.slice(0, 10);
+    if (dia !== diaPintado) {
+      burbujas.appendChild(separadorDeDia(turno.creado_en));
+      diaPintado = dia;
+    }
+    // Los turnos con foto se pintan como texto: la foto no se guarda en ningún
+    // sitio (ADR-017), así que no hay nada que volver a enseñar.
+    agregarMensaje(turno.rol === "usuario" ? "usuario" : "coach", {
+      voz: turno.modalidad === "voz",
+    }).escribir(turno.contenido);
+  });
+
+  // Sin animación y directo al final: esto no está "llegando" ahora, ya estaba.
+  burbujas.classList.add("sin-entrada");
+  requestAnimationFrame(() => {
+    burbujas.scrollTop = burbujas.scrollHeight;
+    burbujas.classList.remove("sin-entrada");
+  });
+}
+
+/* "Hoy", "Ayer" o la fecha. Sin esto, una conversación de hace tres semanas se lee
+   como si acabara de pasar — y el "te veo el martes" de entonces confunde. */
+function separadorDeDia(iso) {
+  const cuando = new Date(iso);
+  const hoy = new Date();
+  const soloDia = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const dias = Math.round((soloDia(hoy) - soloDia(cuando)) / 86400000);
+
+  let etiqueta;
+  if (dias === 0) etiqueta = "Hoy";
+  else if (dias === 1) etiqueta = "Ayer";
+  else if (dias < 7) etiqueta = cuando.toLocaleDateString("es-MX", { weekday: "long" });
+  else etiqueta = fechaCorta(iso.slice(0, 10));
+
+  const separador = crear("div", "separador-dia");
+  separador.appendChild(crear("span", null, etiqueta));
+  return separador;
 }
 
 /* Un mensaje del hilo. Devuelve un mando en vez del nodo pelado: quien lo usa no
