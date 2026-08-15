@@ -443,6 +443,76 @@ label {
   border-radius: var(--r-lg);
 }
 
+/* -----------------------------------------------------------------------------
+   El retrato de Koda
+
+   La marca (el icono de linea sobre ambar) es el logotipo: identifica al producto
+   y se tiñe con currentColor. El retrato es el personaje: identifica a QUIEN te
+   contesta. Son dos cosas distintas y por eso no comparten clase — el rail lleva
+   logotipo, la conversacion lleva cara.
+
+   No va recortado en circulo: el dibujo tiene orejas puntiagudas y cualquier
+   mascara redonda se las come. Flota sobre un resplandor ambar, que ademas lo
+   despega del fondo sin necesidad de un borde.
+   ----------------------------------------------------------------------------- */
+
+.retrato {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  line-height: 0;
+}
+
+.retrato::before {
+  content: "";
+  position: absolute;
+  inset: -22%;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--brasa), transparent 68%);
+}
+
+.retrato img {
+  position: relative;
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.55));
+}
+
+.retrato-sm {
+  width: 40px;
+}
+.retrato-lg {
+  width: 82px;
+}
+.retrato-xl {
+  width: 104px;
+}
+
+/* Un gesto dura lo justo para verse y volver. Escala desde el 88% en vez de
+   aparecer: sustituir la imagen sin mas se lee como un parpadeo de carga. */
+@keyframes gesto-de-koda {
+  from {
+    transform: scale(0.88) rotate(-4deg);
+  }
+  60% {
+    transform: scale(1.06) rotate(1.5deg);
+  }
+  to {
+    transform: scale(1) rotate(0);
+  }
+}
+
+.retrato img.gesticula {
+  animation: gesto-de-koda 420ms var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .retrato img.gesticula {
+    animation: none;
+  }
+}
+
 /* =============================================================================
    Entrar
    ============================================================================= */

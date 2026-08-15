@@ -44,7 +44,44 @@ def test_el_enlace_magico_deja_al_runner_dentro_de_la_aplicacion() -> None:
 
 
 def test_los_recursos_compartidos_se_sirven_desde_la_raiz() -> None:
-    """Portada y aplicacion comparten hoja de estilos, iconos y fondo: si alguno se
-    moviera de sitio, una de las dos se veria sin estilos y nadie se enteraria."""
-    for ruta in ("/styles.css", "/landing.css", "/iconos.svg", "/relieve.svg", "/icono.svg"):
+    """Portada y aplicacion comparten hoja de estilos, iconos, fondo y personaje: si
+    alguno se moviera de sitio, una de las dos se veria rota y nadie se enteraria.
+
+    Los recortes de Koda estan aqui porque los genera un script a partir de un arte
+    que NO esta en el repo: si alguien limpia `koda/` creyendo que es basura
+    generada, esto se cae en vez de dejar huecos en la interfaz."""
+    for ruta in (
+        "/styles.css",
+        "/landing.css",
+        "/iconos.svg",
+        "/relieve.svg",
+        "/icono.svg",
+        "/manifest.webmanifest",
+        "/koda/cara.webp",
+        "/koda/cara-duda.webp",
+        "/koda/corriendo.webp",
+        "/iconos-app/icono-180.png",
+        "/iconos-app/icono-512.png",
+    ):
         assert cliente.get(ruta).status_code == 200, ruta
+
+
+def test_el_manifest_arranca_en_la_aplicacion_y_no_en_la_portada() -> None:
+    """Instalada en el movil, Koda tiene que abrir el chat. Si `start_url` apuntara a
+    la raiz, tocar el icono llevaria a la pagina de marketing cada vez."""
+    manifiesto = cliente.get("/manifest.webmanifest").json()
+
+    assert manifiesto["start_url"] == "/app/"
+    assert manifiesto["display"] == "standalone"
+    for icono in manifiesto["icons"]:
+        assert cliente.get(icono["src"]).status_code == 200, icono["src"]
+
+
+def test_los_estaticos_se_revalidan_en_cada_carga() -> None:
+    """Sin Cache-Control explicito el navegador se inventa uno, y un despliegue tarda
+    horas en verse. Las tipografias son la excepcion: no cambian nunca."""
+    assert cliente.get("/app/").headers["cache-control"] == "no-cache"
+    assert cliente.get("/styles.css").headers["cache-control"] == "no-cache"
+
+    fuente = cliente.get("/fuentes/archivo-variable-latin.woff2")
+    assert "immutable" in fuente.headers["cache-control"]

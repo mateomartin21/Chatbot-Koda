@@ -48,3 +48,4 @@ Las negativas son obligatorias. Un ADR sin consecuencias negativas es publicidad
 | [015](ADR-015-direccion-visual-y-presupuesto-de-movimiento.md) | Una dirección visual propia y un presupuesto de movimiento | Superseded by [016](ADR-016-el-acento-se-aleja-del-naranja-de-strava.md) |
 | [016](ADR-016-el-acento-se-aleja-del-naranja-de-strava.md) | El acento se aleja del naranja de Strava | Aceptado |
 | [017](ADR-017-la-foto-se-reprocesa-antes-de-salir.md) | La foto se reprocesa antes de salir del servidor | Aceptado |
+| [018](ADR-018-koda-tiene-cara-y-la-app-se-instala.md) | Koda tiene cara, y la aplicación se instala en el móvil | Aceptado |

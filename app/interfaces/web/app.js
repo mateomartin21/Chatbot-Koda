@@ -193,6 +193,31 @@ function estado(texto) {
   estadoKoda.textContent = texto || ESTADO_EN_REPOSO;
 }
 
+/* La cara de la cabecera cambia de gesto cuando algo sale mal, y vuelve sola.
+   Es la unica expresion que se dispara: un personaje que sonrie en cada mensaje
+   deja de significar nada, y la queja de siempre de un chat es que el error se lee
+   igual que una respuesta normal. El gesto lo hace visible sin un cartel rojo.
+
+   Las dos caras se precargan al arrancar; sin eso el cambio empieza con el hueco
+   en blanco y se lee como un fallo de carga, justo cuando ya hubo uno de verdad. */
+const CARAS = { normal: "/koda/cara.webp", duda: "/koda/cara-duda.webp" };
+const caraKoda = document.getElementById("cara-koda");
+let vueltaAlaCalma = null;
+
+Object.values(CARAS).forEach((ruta) => {
+  new Image().src = ruta;
+});
+
+function gesto(cual, duracionMs = 3200) {
+  if (!caraKoda || !CARAS[cual]) return;
+  clearTimeout(vueltaAlaCalma);
+  caraKoda.src = CARAS[cual];
+  caraKoda.classList.remove("gesticula");
+  void caraKoda.offsetWidth; // reinicia la animacion si ya estaba puesta
+  caraKoda.classList.add("gesticula");
+  if (cual !== "normal") vueltaAlaCalma = setTimeout(() => gesto("normal"), duracionMs);
+}
+
 function alFinal() {
   burbujas.scrollTop = burbujas.scrollHeight;
 }
@@ -339,6 +364,7 @@ async function enviarMensaje({ texto, audioBlob, foto, mensajeUsuarioYaPuesto = 
     const resp = await fetch("/api/mensajes", { method: "POST", body: formData });
     dejarDeEsperar();
     if (!resp.ok) {
+      gesto("duda");
       respuesta.escribir("No pude procesar tu mensaje. Inténtalo otra vez.");
       return;
     }
@@ -347,6 +373,7 @@ async function enviarMensaje({ texto, audioBlob, foto, mensajeUsuarioYaPuesto = 
     if (data.audio_base64) reproducirMp3(data.audio_base64, respuesta);
   } catch {
     dejarDeEsperar();
+    gesto("duda");
     respuesta.escribir("No hay conexión con Koda. Revisa tu red e inténtalo otra vez.");
   }
 }
@@ -700,6 +727,7 @@ function reiniciarWatchdog() {
   sesionVoz.timeoutRespuesta = setTimeout(() => {
     if (!sesionVoz) return;
     if (!sesionVoz.recibioRespuesta) {
+      gesto("duda");
       agregarMensaje("coach").escribir("Koda tardó demasiado en responder. Inténtalo otra vez.");
     }
     if (sesionVoz.ws.readyState === WebSocket.OPEN) sesionVoz.ws.close();
@@ -755,6 +783,7 @@ function finalizarSesionVoz(codigo) {
   if (codigo === CODIGO_CIERRE_FALLBACK) {
     vozRealtimeDeshabilitada = true;
     if (habiaTurnoActivo) {
+      gesto("duda");
       agregarMensaje("coach").escribir(
         "Se cortó la conexión de voz en tiempo real. Inténtalo otra vez.",
       );

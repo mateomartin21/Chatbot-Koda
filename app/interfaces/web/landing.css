@@ -388,6 +388,16 @@
   margin-top: var(--e-2);
 }
 
+/* Koda entra corriendo en la última sección. Es el único dibujo de la portada:
+   arriba mandan las capturas reales, porque el argumento de esta página es que la
+   aplicación existe, y una ilustración compitiendo con ellas lo debilitaría. Aquí,
+   ya convencido el visitante, es donde el personaje puede ponerle la cara. */
+.koda-corre {
+  width: clamp(150px, 24vw, 230px);
+  height: auto;
+  margin-bottom: calc(var(--e-3) * -1);
+}
+
 .pie {
   padding: var(--e-5) 0 var(--e-6);
   padding-bottom: max(var(--e-6), env(safe-area-inset-bottom));
@@ -490,6 +500,23 @@
       animation-timeline: view();
       animation-range: entry 15% entry 85%;
     }
+
+    /* El resto del contenido sube; Koda llega desde fuera de cuadro. Es la misma
+       animación atada al mismo scroll, pero en la dirección en la que corre. */
+    .cierre .koda-corre {
+      animation-name: llegar-corriendo;
+    }
+  }
+}
+
+@keyframes llegar-corriendo {
+  from {
+    opacity: 0;
+    transform: translateX(-42px) rotate(-4deg);
+  }
+  to {
+    opacity: 1;
+    transform: none;
   }
 }
 

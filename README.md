@@ -123,6 +123,7 @@ docs/{contexto,adr}/
 | [015](docs/adr/ADR-015-direccion-visual-y-presupuesto-de-movimiento.md) | Una dirección visual propia y un presupuesto de movimiento — *superseded por [016](docs/adr/ADR-016-el-acento-se-aleja-del-naranja-de-strava.md)* |
 | [016](docs/adr/ADR-016-el-acento-se-aleja-del-naranja-de-strava.md) | El acento se aleja del naranja de Strava, y seis animaciones más |
 | [017](docs/adr/ADR-017-la-foto-se-reprocesa-antes-de-salir.md) | La foto se reprocesa antes de salir del servidor |
+| [018](docs/adr/ADR-018-koda-tiene-cara-y-la-app-se-instala.md) | Koda tiene cara, y la aplicación se instala en el móvil |
 
 Cada ADR incluye sus **consecuencias negativas**. Un ADR sin ellas es publicidad, no ingeniería.
 
