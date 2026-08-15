@@ -11,14 +11,15 @@ _URL = "https://api.groq.com/openai/v1/audio/transcriptions"
 
 
 class GroqWhisperSTT(STTPort):
+    # Se valida al transcribir y no al construir: ver el comentario de TranscribeAWS.
     def __init__(self, settings: Settings) -> None:
-        if not settings.groq_api_key:
-            raise ValueError("GROQ_API_KEY no esta configurada")
         self._api_key = settings.groq_api_key
         self._modelo = settings.groq_stt_model
         self._idioma = settings.transcribe_language.split("-")[0]  # "es-MX" -> "es"
 
     async def transcribir(self, audio: bytes, audio_mime: str) -> str:
+        if not self._api_key:
+            raise ValueError("GROQ_API_KEY no esta configurada")
         extension = audio_mime.split("/")[-1] if "/" in audio_mime else "wav"
         async with httpx.AsyncClient(timeout=30.0) as client:
             respuesta = await client.post(

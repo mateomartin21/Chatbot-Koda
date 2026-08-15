@@ -4,6 +4,11 @@
 # puerto y en los tests se sustituye por un doble de tests/fakes/. Este workflow no
 # tiene un solo secreto configurado, y es a proposito — si algun dia hiciera falta
 # uno para que pasen los tests, seria la senal de que un test se salio del diseno.
+#
+# Y no es teoria: la primera vez que corrio de verdad, fallo. En local pasaba porque
+# la maquina tenia un .env al lado; aqui, sin el, la aplicacion ni siquiera se podia
+# importar. Esa es exactamente la clase de mentira que un CI existe para descubrir.
+# Ver tests/unit/test_arquitectura.py::test_el_contenedor_se_arma_sin_una_sola_credencial.
 
 name: CI
 

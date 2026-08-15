@@ -16,9 +16,12 @@ from app.infrastructure.aws_session import cliente_aws
 
 
 class TranscribeAWS(STTPort):
+    # Construir un adaptador es cablearlo, no usarlo. Si esto reventara aqui, la
+    # aplicacion entera dejaria de poder IMPORTARSE sin una cuenta de AWS
+    # configurada — y con ella la suite de tests, que se supone que corre sin
+    # credenciales. El aviso temprano no se pierde: vive en el arranque de main.py,
+    # que es donde toca y donde se oye mas.
     def __init__(self, settings: Settings) -> None:
-        if not settings.s3_bucket:
-            raise ValueError("S3_BUCKET no esta configurado")
         self._s3 = cliente_aws("s3", settings)
         self._transcribe = cliente_aws("transcribe", settings)
         self._bucket = settings.s3_bucket
@@ -28,6 +31,8 @@ class TranscribeAWS(STTPort):
         return await asyncio.to_thread(self._transcribir_sync, audio, audio_mime)
 
     def _transcribir_sync(self, audio: bytes, audio_mime: str) -> str:
+        if not self._bucket:
+            raise ValueError("S3_BUCKET no esta configurado")
         extension = audio_mime.split("/")[-1] if "/" in audio_mime else "wav"
         audio_key = f"transcribir/entrada/{uuid.uuid4()}.{extension}"
         salida_key = f"transcribir/salida/{uuid.uuid4()}.json"

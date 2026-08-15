@@ -20,6 +20,31 @@ logging.basicConfig(level=get_settings().log_level)
 logger = logging.getLogger(__name__)
 
 
+def _ajustes_que_faltan(settings: Any) -> list[str]:
+    """Los ajustes sin los que el proveedor elegido no puede funcionar.
+
+    Antes esto lo comprobaba cada adaptador en su constructor, y tenia un efecto que
+    nadie habia mirado: como el contenedor se arma al importar `deps`, **la aplicacion
+    entera dejaba de poder importarse** sin una cuenta de AWS configurada. La suite de
+    tests incluida — que se supone que corre sin credenciales — solo pasaba porque la
+    maquina de quien la ejecutaba tenia un `.env` al lado. En CI, que no lo tiene,
+    llevaba fallando desde el primer dia.
+
+    Comprobarlo aqui conserva lo bueno de aquello (enterarse pronto, no en la primera
+    peticion) y quita lo malo: importar un modulo no exige tener la nube configurada.
+    """
+    faltan = []
+    if settings.provider_stt == "aws" and not settings.s3_bucket:
+        faltan.append("S3_BUCKET (lo necesita Transcribe para dejar el audio)")
+    if settings.provider_stt != "aws" and not settings.groq_api_key:
+        faltan.append("GROQ_API_KEY (PROVIDER_STT no es 'aws')")
+    if not settings.bedrock_model_id:
+        faltan.append("BEDROCK_MODEL_ID (sin el no hay modelo principal)")
+    if settings.provider_email == "aws" and not settings.ses_from_email:
+        faltan.append("SES_FROM_EMAIL (sin el no salen los enlaces magicos)")
+    return faltan
+
+
 @asynccontextmanager
 async def ciclo_de_vida(app: FastAPI) -> AsyncIterator[None]:
     """Los avisos programados se reconstruyen al arrancar leyendo la tabla
@@ -28,6 +53,17 @@ async def ciclo_de_vida(app: FastAPI) -> AsyncIterator[None]:
     Si la base no responde, la app arranca igual y sin recordatorios: quedarse sin
     correos es molesto, no poder entrar a hablar con el coach es descalificante.
     """
+    ajustes = get_settings()
+    if faltan := _ajustes_que_faltan(ajustes):
+        aviso = "Configuracion incompleta: " + "; ".join(faltan)
+        # En produccion es preferible no arrancar: un servidor vivo que no puede
+        # mandar un correo ni contestar un mensaje se parece demasiado a uno sano.
+        # En desarrollo se avisa y se sigue: media aplicacion es suficiente para
+        # trabajar en la otra media.
+        if ajustes.app_env == "production":
+            raise RuntimeError(aviso)
+        logger.warning(aviso)
+
     scheduler = get_scheduler()
     scheduler.iniciar()
     try:
