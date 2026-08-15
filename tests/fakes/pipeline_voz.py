@@ -45,6 +45,9 @@ class FakeLLM(LLMPort):
         self.imagenes_recibidas: list[Imagen] = []
         # Herramientas que este doble "decide" llamar antes de contestar, en orden.
         self.llamadas_a_emitir: list[LlamadaHerramienta] = []
+        # Las que le OFRECIERON. Es lo que permite comprobar que la voz y el texto
+        # llegan al mismo coach con las mismas cinco herramientas del dominio.
+        self.herramientas_recibidas: list[tuple[Herramienta, ...]] = []
         self.resultados_recibidos: list[str] = []
 
     @property
@@ -68,6 +71,7 @@ class FakeLLM(LLMPort):
         if imagen is not None:
             self.imagenes_recibidas.append(imagen)
         self.prompts_recibidos.append(system_prompt)
+        self.herramientas_recibidas.append(tuple(herramientas))
         if self.retraso_segundos:
             await asyncio.sleep(self.retraso_segundos)
         if self.falla:

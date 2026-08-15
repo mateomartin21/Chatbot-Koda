@@ -16,6 +16,8 @@ from datetime import date, time
 
 from app.application.contexto import (
     ReposDelCoach,
+    construir_contexto,
+    construir_system_prompt,
     fecha_hablada,
     perfil_hablado,
     plan_hablado,
@@ -29,7 +31,12 @@ from app.application.planes import (
 )
 from app.application.recordatorios import descrito
 from app.domain.models import DatosPerfil, Hecho, Runner, TipoRecordatorio
-from app.domain.ports.llm_port import EjecutorHerramientas, Herramienta, LlamadaHerramienta
+from app.domain.ports.llm_port import (
+    EjecutorHerramientas,
+    Herramienta,
+    LlamadaHerramienta,
+    LLMPort,
+)
 from app.domain.training.modelos import PlanNoViable, ValorInvalido
 from app.domain.training.paces import Ritmo
 
@@ -314,6 +321,96 @@ async def _registrar_entrenamiento(runner: Runner, repos: ReposDelCoach, argumen
         f"Registrado: {resumen}. Repitele los numeros al runner por si leiste mal la "
         f"pantalla, y comenta que tal le queda respecto a lo que tocaba."
     )
+
+
+# --- El puente entre la voz y el cerebro -----------------------------------------
+#
+# Ver docs/adr/ADR-020-nova-habla-y-sonnet-decide.md.
+#
+# En voz, Nova Sonic NO recibe estas cinco herramientas: recibe solo la de abajo, y
+# el contexto del runner tampoco. Todo lo que sabe Koda vive detras de esta llamada.
+#
+# Es la misma idea que ya sostiene el resto del proyecto: en vez de pedirle a un
+# modelo que no invente, se le quita aquello con lo que podria inventar. Un modelo
+# que no tiene el ritmo del runner en el contexto no puede decir un ritmo equivocado
+# — como mucho puede callarse.
+
+NOMBRE_HERRAMIENTA_PUENTE = "preguntar_al_entrenador"
+
+HERRAMIENTAS_VOZ: tuple[Herramienta, ...] = (
+    Herramienta(
+        nombre=NOMBRE_HERRAMIENTA_PUENTE,
+        descripcion=(
+            "El entrenador. Sabe quien es el runner, que plan tiene, sus ritmos y todo lo "
+            "que han hablado antes. Llamalo SIEMPRE, con cualquier cosa que diga el runner "
+            "— un saludo, una pregunta, un simple 'si'. Tu no sabes nada; el si. Pasale lo "
+            "que dijo tal cual y despues di en voz alta lo que te devuelva."
+        ),
+        esquema={
+            "type": "object",
+            "properties": {
+                "peticion": {
+                    "type": "string",
+                    "description": "Lo que acaba de decir el runner, literal y sin resumir.",
+                }
+            },
+            "required": ["peticion"],
+        },
+    ),
+)
+
+_ENTRENADOR_NO_DISPONIBLE = (
+    "No he podido consultar al entrenador ahora mismo. Dile que lo intente en un momento "
+    "y NO te inventes ninguna respuesta."
+)
+
+
+def ejecutor_de_voz(
+    runner: Runner,
+    repos: ReposDelCoach,
+    *,
+    llm: LLMPort,
+    system_prompt: str,
+    hoy: date | None = None,
+) -> EjecutorHerramientas:
+    """El ejecutor que ve Nova Sonic: una sola herramienta, que por dentro es una
+    conversacion entera con el modelo grande.
+
+    El contexto se arma AQUI, en cada llamada, y no al abrir la sesion: dentro de un
+    mismo turno el runner puede guardar su perfil y pedir un plan seguido, y el
+    segundo tiene que ver lo que guardo el primero.
+    """
+    dia = hoy or date.today()
+    herramientas_de_verdad = ejecutor_para(runner, repos, dia)
+
+    async def ejecutar(llamada: LlamadaHerramienta) -> str:
+        if llamada.nombre != NOMBRE_HERRAMIENTA_PUENTE:
+            # No deberia pasar: es la unica que se le ofrece. Si pasa, se dice — un
+            # locutor sin respuesta se calla, no improvisa.
+            logger.warning("La voz pidio una herramienta que no tiene: %s", llamada.nombre)
+            return _ENTRENADOR_NO_DISPONIBLE
+
+        peticion = str(llamada.argumentos.get("peticion", "")).strip()
+        if not peticion:
+            return _ENTRENADOR_NO_DISPONIBLE
+
+        actual = await repos.runners.obtener(runner.id) or runner
+        contexto = await construir_contexto(actual, repos, dia)
+        try:
+            respuesta = await llm.conversar(
+                peticion,
+                system_prompt=construir_system_prompt(system_prompt, contexto),
+                herramientas=HERRAMIENTAS,
+                ejecutar=herramientas_de_verdad,
+            )
+        except Exception:  # noqa: BLE001 — el gateway ya agoto sus proveedores
+            logger.warning("El entrenador no contesto a una consulta de voz", exc_info=True)
+            return _ENTRENADOR_NO_DISPONIBLE
+
+        logger.info("Entrenador -> %d caracteres para la voz", len(respuesta))
+        return respuesta or _ENTRENADOR_NO_DISPONIBLE
+
+    return ejecutar
 
 
 def ejecutor_para(runner: Runner, repos: ReposDelCoach, hoy: date | None = None) -> EjecutorHerramientas:

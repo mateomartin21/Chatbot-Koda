@@ -90,6 +90,10 @@ def get_coach_voz_prompt(container: Container = Depends(get_container)) -> str:
     return container.coach_voz_prompt
 
 
+def get_voz_locutor_prompt(container: Container = Depends(get_container)) -> str:
+    return container.voz_locutor_prompt
+
+
 async def get_session(container: Container = Depends(get_container)) -> AsyncIterator[AsyncSession]:
     async with container.session_factory() as session:
         yield session

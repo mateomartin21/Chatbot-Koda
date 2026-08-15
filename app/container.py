@@ -40,9 +40,13 @@ class Container:
     # interesa la calidad del tier 1, interesa que sea barato.
     llm_barato: LLMPort
     coach_system_prompt: str
-    # Nova Sonic recibe un prompt aparte, mucho mas corto. No es duplicacion por
+    # El coach cuando la peticion viene por voz: las reglas de siempre mas las de
+    # hablar, porque su respuesta se va a leer en alto. No es duplicacion por
     # descuido: ver el comentario de build_container.
     coach_voz_prompt: str
+    # Lo unico que oye Nova Sonic. No contiene un solo dato del runner, y eso es la
+    # garantia — ver docs/adr/ADR-020-nova-habla-y-sonnet-decide.md.
+    voz_locutor_prompt: str
     prompt_extraccion_memoria: str
     plantilla_recordatorio: str
 
@@ -86,13 +90,22 @@ def build_container(settings: Settings | None = None) -> Container:
 
     coach_system_prompt = (_PROMPTS_DIR / "coach_system.md").read_text(encoding="utf-8")
 
-    # Dos prompts para el mismo coach, a proposito. coach_system.md son ~2.800
-    # caracteres escritos para un modelo grande; con esa longitud Nova Sonic ignoraba
-    # instrucciones explicitas (preguntaba el anio teniendo la fecha de hoy delante,
-    # y volvia a pedir datos del perfil que tenia justo encima). Es un modelo pequeno
-    # optimizado para latencia y su seguimiento de instrucciones se degrada con la
-    # longitud. coach_voz.md dice lo mismo en un tercio del espacio.
+    # Tres prompts, y cada uno es para un papel distinto:
+    #
+    # - coach_system.md  el coach por escrito. ~2.800 caracteres para un modelo grande.
+    # - coach_voz.md     el mismo coach cuando la peticion llega hablando: mismas
+    #                    herramientas y mismo dominio, pero respuestas cortas y sin
+    #                    markdown, porque lo que diga se va a leer en voz alta.
+    # - voz_locutor.md   Nova Sonic. Ni herramientas del coach ni datos del runner:
+    #                    solo como hablar y la orden de consultarlo todo. Es lo que
+    #                    hace imposible que se invente un ritmo — no tiene ninguno.
+    #
+    # El reparto no es capricho: con coach_system.md entero, Nova Sonic ignoraba
+    # instrucciones explicitas (preguntaba el anio teniendo la fecha delante, y volvia
+    # a pedir datos del perfil que tenia justo encima). Es un modelo pequeno optimizado
+    # para latencia y su seguimiento de instrucciones se degrada con la longitud.
     coach_voz_prompt = (_PROMPTS_DIR / "coach_voz.md").read_text(encoding="utf-8")
+    voz_locutor_prompt = (_PROMPTS_DIR / "voz_locutor.md").read_text(encoding="utf-8")
     prompt_extraccion_memoria = (_PROMPTS_DIR / "extraccion_memoria.md").read_text(encoding="utf-8")
     plantilla_recordatorio = (_PLANTILLAS_DIR / "recordatorio.html").read_text(encoding="utf-8")
 
@@ -107,6 +120,7 @@ def build_container(settings: Settings | None = None) -> Container:
         llm_barato=llm_barato,
         coach_system_prompt=coach_system_prompt,
         coach_voz_prompt=coach_voz_prompt,
+        voz_locutor_prompt=voz_locutor_prompt,
         prompt_extraccion_memoria=prompt_extraccion_memoria,
         plantilla_recordatorio=plantilla_recordatorio,
     )

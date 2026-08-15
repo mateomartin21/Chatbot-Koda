@@ -13,11 +13,12 @@ import logging
 
 from fastapi import APIRouter, Depends, WebSocket
 
-from app.application.coach import HERRAMIENTAS, ejecutor_para
-from app.application.contexto import ReposDelCoach, construir_contexto, construir_system_prompt
+from app.application.coach import HERRAMIENTAS_VOZ, NOMBRE_HERRAMIENTA_PUENTE, ejecutor_de_voz
+from app.application.contexto import ReposDelCoach
 from app.config import Settings
 from app.container import Container
 from app.domain.models import Mensaje
+from app.domain.ports.llm_port import LlamadaHerramienta, LLMPort
 from app.domain.ports.voz_realtime_port import (
     ErrorSesion,
     FragmentoAudio,
@@ -31,9 +32,11 @@ from app.interfaces.api.deps import (
     Repos,
     get_coach_voz_prompt,
     get_container,
+    get_llm_port,
     get_repos,
     get_scheduler,
     get_settings,
+    get_voz_locutor_prompt,
     get_voz_realtime_port,
     lanzar_extraccion_de_memoria,
     runner_desde_token,
@@ -55,8 +58,13 @@ async def voz_realtime(
     voz: VozRealtimePort = Depends(get_voz_realtime_port),
     container: Container = Depends(get_container),
     scheduler: APSchedulerAvisos = Depends(get_scheduler),
-    # Prompt propio, corto (ver container.build_container): con el de texto, Nova Sonic
-    # ignoraba instrucciones que tenia escritas literalmente delante.
+    # El cerebro. Es el mismo gateway de modelos que atiende /api/mensajes, con su
+    # cascada de proveedores por dentro: hablar y escribir no son dos Kodas distintos.
+    llm: LLMPort = Depends(get_llm_port),
+    # Lo que oye Nova Sonic: como hablar y nada mas. Sin datos que poder equivocar.
+    prompt_locutor: str = Depends(get_voz_locutor_prompt),
+    # Lo que oye el cerebro cuando la consulta viene por voz: las mismas reglas de
+    # siempre mas las de hablar, porque su respuesta se va a leer en alto.
     system_prompt: str = Depends(get_coach_voz_prompt),
 ) -> None:
     try:
@@ -76,19 +84,31 @@ async def voz_realtime(
         reprogramar=lambda r: programar_para(r, repos.recordatorios, scheduler),
     )
     try:
-        # Mismas herramientas y mismo contexto que POST /api/mensajes: hablar y escribir
-        # tienen que dar el mismo resultado, no dos Kodas distintos. El ejecutor queda
-        # atado al runner de la cookie durante toda la sesion.
+        # Nova Sonic NO recibe el contexto del runner ni las cinco herramientas del
+        # coach: recibe el prompt del locutor, que no contiene un solo dato, y UNA
+        # herramienta que por dentro es una conversacion entera con el modelo grande.
+        # Ver docs/adr/ADR-020-nova-habla-y-sonnet-decide.md.
         #
-        # El contexto se arma AQUI, al abrir: en Nova Sonic el system prompt se manda una
-        # sola vez por sesion y no hay forma de ampliarlo despues. Como el navegador abre
-        # una sesion nueva por cada mensaje, es tambien lo que hace que Koda recuerde lo
-        # que se dijo hace un momento — sin esto, cada mensaje empezaba de cero.
-        contexto = await construir_contexto(runner, repos_coach)
+        # Que el prompt vaya vacio de datos no es una omision, es la garantia: un
+        # modelo que no tiene el ritmo del runner en el contexto no puede decir un
+        # ritmo equivocado. El contexto se arma dentro del puente, en cada consulta,
+        # que ademas es mas fresco — antes se congelaba al abrir la sesion.
+        #
+        # Hablar y escribir siguen dando el mismo resultado porque detras hay el mismo
+        # cerebro, las mismas herramientas y el mismo dominio.
+        puente = ejecutor_de_voz(runner, repos_coach, llm=llm, system_prompt=system_prompt)
+        # Si el locutor contesta sin consultar, lo que diga no esta fundado en nada.
+        # Esto lo hace detectable; el rescate de mas abajo lo hace inofensivo.
+        consultado = {"en_este_turno": False}
+
+        async def consultar_al_entrenador(llamada: LlamadaHerramienta) -> str:
+            consultado["en_este_turno"] = True
+            return await puente(llamada)
+
         sesion = await voz.abrir_sesion(
-            system_prompt=construir_system_prompt(system_prompt, contexto),
-            herramientas=HERRAMIENTAS,
-            ejecutar=ejecutor_para(runner, repos_coach),
+            system_prompt=prompt_locutor,
+            herramientas=HERRAMIENTAS_VOZ,
+            ejecutar=consultar_al_entrenador,
         )
     except Exception:
         # Nova Sonic no disponible (ej. AccessDeniedException si el modelo no esta
@@ -142,12 +162,46 @@ async def voz_realtime(
                 await websocket.send_bytes(evento.datos)
             elif isinstance(evento, TurnoTerminado):
                 logger.info("Turno de Nova Sonic terminado (completionEnd)")
+                if not consultado["en_este_turno"]:
+                    await _rescatar_turno_sin_consulta(definitivo, adelanto)
+                consultado["en_este_turno"] = False
                 await _guardar_turno(definitivo, adelanto)
                 await websocket.send_json({"tipo": "turno_terminado"})
             elif isinstance(evento, ErrorSesion):
                 await _guardar_turno(definitivo, adelanto)
                 await websocket.close(code=_CODIGO_CIERRE_FALLBACK)
                 return
+
+    def _lo_que_dijo(acumulado: dict[str, list[str]], otro: dict[str, list[str]], rol: str) -> str:
+        return (" ".join(acumulado.get(rol, [])) or " ".join(otro.get(rol, []))).strip()
+
+    async def _rescatar_turno_sin_consulta(
+        definitivo: dict[str, list[str]], adelanto: dict[str, list[str]]
+    ) -> None:
+        """El locutor cerro un turno sin preguntarle nada al entrenador.
+
+        Su prompt no tiene un solo dato del runner, asi que no puede haber dicho un
+        ritmo equivocado — como mucho una frase de relleno. Pero el runner pregunto
+        algo y se ha quedado sin respuesta, y eso es igual de malo que una inventada:
+        cree que le contestaron.
+
+        Asi que se consulta desde aqui con lo que dijo, y la respuesta buena se manda
+        al hilo. Va detras de lo que dijera el locutor, no en su lugar: al navegador
+        ya le llego, y la unica forma de retirarlo seria que el audio no hubiera
+        sonado — y ya sono.
+        """
+        dicho = _lo_que_dijo(definitivo, adelanto, "usuario")
+        if not dicho:
+            return  # nadie pregunto nada: no hay turno que rescatar
+
+        logger.warning("La voz cerro un turno sin consultar al entrenador. Se rescata: %r", dicho)
+        respuesta = await puente(
+            LlamadaHerramienta(nombre=NOMBRE_HERRAMIENTA_PUENTE, argumentos={"peticion": dicho})
+        )
+        definitivo.setdefault("coach", []).append(respuesta)
+        await websocket.send_json(
+            {"tipo": "transcripcion", "texto": respuesta, "rol": "coach", "definitiva": True}
+        )
 
     async def _guardar_turno(definitivo: dict[str, list[str]], adelanto: dict[str, list[str]]) -> None:
         mensajes = []
