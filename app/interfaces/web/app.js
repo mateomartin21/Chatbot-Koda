@@ -1680,6 +1680,20 @@ function conDosPuntos(texto) {
   return `${digitos.slice(0, -4)}:${digitos.slice(-4, -2)}:${digitos.slice(-2)}`;
 }
 
+// El `detail` de FastAPI es una cadena cuando lo lanzamos nosotros y una lista de
+// errores cuando lo lanza la validación de pydantic. Solo se enseña el primero: son
+// mensajes escritos para una persona, no un volcado.
+async function motivoDelError(resp) {
+  try {
+    const { detail } = await resp.json();
+    if (typeof detail === "string") return detail;
+    if (Array.isArray(detail) && detail[0]?.msg) return detail[0].msg.replace(/^Value error, /, "");
+  } catch {
+    /* respuesta sin JSON: se cae al mensaje genérico */
+  }
+  return null;
+}
+
 function aSegundos(texto) {
   if (!texto || !texto.trim()) return null;
   // Se normaliza antes de partir: asi da igual que venga "52:30" del formulario o
@@ -1814,9 +1828,12 @@ formPerfil.addEventListener("submit", async (evento) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(cuerpo),
     });
+    // Si el servidor explica QUE esta mal, se enseña su mensaje. Un "revisa los datos"
+    // genérico obliga a adivinar cuál de los seis campos es, y el que suele fallar
+    // —la marca— es justo el que no se ve a simple vista que esté mal.
     mensajePerfil.textContent = resp.ok
       ? "Guardado. Con esto te ajusto mejor los ritmos."
-      : "No pudimos guardarlo. Revisa los datos e inténtalo otra vez.";
+      : (await motivoDelError(resp)) || "No pudimos guardarlo. Revisa los datos e inténtalo otra vez.";
     // En la bienvenida, guardar es la puerta al chat: se deja leer el mensaje y
     // se pasa.
     if (resp.ok && panelPerfil.classList.contains("modo-bienvenida")) {

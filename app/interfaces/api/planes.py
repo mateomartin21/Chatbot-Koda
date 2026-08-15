@@ -19,7 +19,7 @@ from app.application.planes import (
 )
 from app.domain.models import DatosPerfil, Runner
 from app.domain.training.modelos import PlanActivo, PlanNoViable, SesionProgramada, ValorInvalido
-from app.domain.training.paces import Ritmo, ZonasRitmo
+from app.domain.training.paces import Ritmo, ZonasRitmo, marca_creible
 from app.infrastructure.scheduler.apscheduler_adapter import APSchedulerAvisos
 from app.interfaces.api.deps import (
     Repos,
@@ -177,6 +177,24 @@ async def guardar_perfil(
     repos: Repos = Depends(get_repos),
     scheduler: APSchedulerAvisos = Depends(get_scheduler),
 ) -> PerfilRespuesta:
+    # El dominio ya se defiende solo: una marca imposible se ignora y los ritmos salen
+    # estimados. Pero ignorarla en silencio deja al runner creyendo que dio su dato, y
+    # preguntandose por que sus ritmos son aproximados. Aqui se le dice, y se le dice
+    # antes de que empiece a hablar con Koda. Es la MISMA funcion del dominio: si la
+    # regla se copiara aqui, un dia dirian cosas distintas.
+    if (
+        peticion.marca_distancia_km
+        and peticion.marca_tiempo_seg
+        and not marca_creible(peticion.marca_distancia_km, peticion.marca_tiempo_seg)
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Esa marca da un ritmo imposible. Revisa el tiempo: 25:30 son "
+                "veinticinco minutos y medio, no veinticinco segundos."
+            ),
+        )
+
     actualizado = await actualizar_perfil(runner, DatosPerfil(**peticion.model_dump()), repos.runners)
     if peticion.zona_horaria and peticion.zona_horaria != runner.zona_horaria:
         # Se movio de huso (o lo dijo por primera vez): los avisos ya programados
