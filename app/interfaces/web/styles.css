@@ -484,6 +484,61 @@ label {
   filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.55));
 }
 
+/* -----------------------------------------------------------------------------
+   Koda hablando
+
+   El ecualizador del avatar solo se ve si ese mensaje esta en pantalla. Subes un
+   poco en el hilo — o estas en el movil, donde caben dos mensajes — y desaparece
+   la unica senal de que sigue hablando; con audio de veinte segundos, eso parece
+   que se colgo. El retrato de la cabecera esta siempre a la vista.
+
+   El resplandor crece con --voz, que app.js pone desde el PCM que suena en ese
+   instante. No es un ritmo inventado: es su voz. La contraparte de las barras del
+   microfono, que ya se mueven con la tuya.
+   ----------------------------------------------------------------------------- */
+
+.retrato.habla::before {
+  background: radial-gradient(circle, var(--amanecer), transparent 66%);
+  opacity: calc(0.18 + var(--voz, 0) * 0.5);
+  transform: scale(calc(1 + var(--voz, 0) * 0.28));
+  /* Solo hacia abajo: subir lo maneja --voz, que ya llega suavizado. Frenar la
+     bajada evita el parpadeo en los silencios entre palabras. */
+  transition: opacity 90ms linear;
+}
+
+.retrato.habla img {
+  transform: scale(calc(1 + var(--voz, 0) * 0.05));
+}
+
+/* Por la cascada llega un MP3 ya montado: no hay nivel que seguir, asi que el
+   resplandor late solo. Dice lo mismo con menos detalle. */
+.retrato.habla-sin-nivel::before {
+  animation: aliento-de-koda 1400ms var(--ease-in-out) infinite alternate;
+}
+
+@keyframes aliento-de-koda {
+  from {
+    opacity: 0.16;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0.55;
+    transform: scale(1.22);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .retrato.habla::before,
+  .retrato.habla img {
+    transition: none;
+    animation: none;
+    transform: none;
+  }
+  .retrato.habla::before {
+    opacity: 0.4;
+  }
+}
+
 .retrato-sm {
   width: 40px;
 }
@@ -2329,6 +2384,7 @@ label {
   display: flex;
 }
 
+.avatar.hablando > img,
 .avatar.hablando > svg {
   display: none;
 }

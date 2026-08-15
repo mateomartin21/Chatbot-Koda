@@ -470,8 +470,13 @@ async function enviarMensaje({ texto, audioBlob, foto, mensajeUsuarioYaPuesto = 
 function reproducirMp3(base64, mensaje) {
   const audio = new Audio(`data:audio/mpeg;base64,${base64}`);
   mensaje.hablando(true);
+  // Por la cascada llega un MP3 ya montado, no PCM: no hay nivel que seguir, asi que
+  // el retrato late a ritmo propio. Dice lo mismo — "sigue hablando" — con menos
+  // detalle, que es exactamente lo que esta ruta es.
+  retratoCabecera?.classList.add("habla", "habla-sin-nivel");
   estado("Hablando");
   const terminar = () => {
+    retratoCabecera?.classList.remove("habla", "habla-sin-nivel");
     mensaje.hablando(false);
     estado(null);
   };
@@ -813,7 +818,12 @@ function reproducirFragmentoPCM(arrayBuffer) {
   const contexto = sesionVoz.audioContextSalida;
   const pcm16 = new Int16Array(arrayBuffer);
   const flotante = new Float32Array(pcm16.length);
-  for (let i = 0; i < pcm16.length; i++) flotante[i] = pcm16[i] / 0x8000;
+  let suma = 0;
+  for (let i = 0; i < pcm16.length; i++) {
+    const muestra = pcm16[i] / 0x8000;
+    flotante[i] = muestra;
+    suma += muestra * muestra;
+  }
 
   const buffer = contexto.createBuffer(1, flotante.length, MUESTREO_SALIDA);
   buffer.copyToChannel(flotante, 0);
@@ -825,6 +835,71 @@ function reproducirFragmentoPCM(arrayBuffer) {
   const inicio = Math.max(contexto.currentTime, sesionVoz.siguienteInicio);
   fuente.start(inicio);
   sesionVoz.siguienteInicio = inicio + buffer.duration;
+
+  // El nivel se agenda para CUANDO SUENE, no para cuando llega. Nova Sonic genera el
+  // audio mucho más rápido que en tiempo real (es el mismo detalle que obliga a
+  // esperar antes de cerrar el AudioContext), así que pintarlo al recibirlo dejaría
+  // el retrato moviéndose varios segundos por delante de la voz. Y una animación que
+  // no va con lo que oyes es peor que ninguna: se lee como que va lenta.
+  agendarNivelDeVoz(Math.sqrt(suma / pcm16.length), inicio, inicio + buffer.duration);
+}
+
+/* ---------------------------------------------------------------------------
+   Koda hablando, visible desde cualquier sitio
+
+   El ecualizador del avatar solo se ve si ese mensaje está en pantalla. En cuanto
+   subes un poco en el hilo — o en el móvil, donde apenas caben dos mensajes —
+   desaparece la única señal de que Koda sigue hablando, y con audio de veinte
+   segundos eso parece que se colgó.
+
+   El retrato de la cabecera está siempre a la vista, así que es él quien lo dice.
+   Y late con la voz de verdad, no a un ritmo inventado: el nivel sale del mismo
+   PCM que se está reproduciendo. Es la contraparte de las barras del micrófono,
+   que ya se mueven con lo que dices tú.
+   --------------------------------------------------------------------------- */
+
+const retratoCabecera = caraKoda?.closest(".retrato");
+let nivelesDeVoz = [];
+let latido = null;
+
+function agendarNivelDeVoz(nivel, desde, hasta) {
+  nivelesDeVoz.push({ nivel, desde, hasta });
+  if (latido === null) empezarLatido();
+}
+
+function empezarLatido() {
+  if (!retratoCabecera) return;
+  retratoCabecera.classList.add("habla");
+
+  const paso = () => {
+    const contexto = sesionVoz?.audioContextSalida;
+    if (!contexto) return pararLatido();
+
+    const ahora = contexto.currentTime;
+    // Lo ya sonado se tira; si no, la cola crece durante toda la respuesta.
+    while (nivelesDeVoz.length && nivelesDeVoz[0].hasta < ahora) nivelesDeVoz.shift();
+
+    const sonando = nivelesDeVoz[0];
+    if (!sonando && sesionVoz.siguienteInicio <= ahora) return pararLatido();
+
+    // 0.18 es un nivel de voz normal; se escala a [0,1] y se recorta. Sin el tope,
+    // una consonante fuerte daría un salto que parece un fallo de render.
+    const objetivo = sonando && sonando.desde <= ahora ? Math.min(sonando.nivel / 0.18, 1) : 0;
+    const previo = parseFloat(retratoCabecera.style.getPropertyValue("--voz")) || 0;
+    // Media con el anterior: el PCM llega a trozos y sin suavizar el retrato
+    // parpadea en vez de respirar.
+    retratoCabecera.style.setProperty("--voz", (previo * 0.6 + objetivo * 0.4).toFixed(3));
+    latido = requestAnimationFrame(paso);
+  };
+  latido = requestAnimationFrame(paso);
+}
+
+function pararLatido() {
+  if (latido !== null) cancelAnimationFrame(latido);
+  latido = null;
+  nivelesDeVoz = [];
+  retratoCabecera?.classList.remove("habla");
+  retratoCabecera?.style.removeProperty("--voz");
 }
 
 // Watchdog de INACTIVIDAD, no un plazo fijo: se reinicia con cada mensaje que
@@ -873,6 +948,7 @@ function finalizarSesionVoz(codigo) {
   sesionVoz.mensajeActual?.hablando(false);
   sesionVoz = null;
   mostrarBarraGrabacion(false);
+  pararLatido();
 
   // CLAVE: Nova Sonic genera el audio mucho mas rapido que en tiempo real, asi
   // que cuando el turno "termina" del lado del servidor todavia quedan segundos
