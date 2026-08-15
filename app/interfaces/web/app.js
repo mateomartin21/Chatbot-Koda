@@ -237,7 +237,12 @@ function agregarMensaje(rol, { voz = false } = {}) {
   const fila = crear("div", `mensaje mensaje-${rol}`);
   if (rol === "coach") {
     const avatar = crear("div", "avatar");
-    avatar.appendChild(icono("koda"));
+    // El icono de la aplicacion, el mismo que el logotipo y el de la pantalla de
+    // inicio. Es la unica marca que aparece dentro de la conversacion, asi que si
+    // fuera distinta de la de la cabecera se leeria como otra cosa.
+    avatar.appendChild(
+      Object.assign(new Image(192, 192), { src: "/iconos-app/icono-192.png", alt: "" }),
+    );
     // Tres barras que solo se ven mientras suena su voz. El anillo de antes decía
     // "algo pasa"; esto dice "está hablando", que es lo único que necesitas saber
     // si el móvil va en el bolsillo y solo lo miras de reojo.
@@ -548,10 +553,26 @@ const CODIGO_CIERRE_FALLBACK = 4500;
 const TIMEOUT_INACTIVIDAD_MS = 20000;
 
 let sesionVoz = null;
-// Si Nova Sonic ya fallo una vez en esta pagina (p. ej. el modelo no esta
-// habilitado en Bedrock -> Model access), no tiene sentido perder tiempo
-// intentandolo en cada clic: se va directo a la cascada hasta recargar.
-let vozRealtimeDeshabilitada = false;
+
+/* Cuantos intentos seguidos pueden fallar antes de rendirse y quedarse en la
+   cascada hasta recargar la pagina.
+
+   Antes bastaba UNO. El razonamiento era bueno para la causa permanente — si el
+   modelo no esta habilitado en Bedrock, reintentar en cada clic solo hace perder
+   dos segundos por mensaje — pero trataba igual un corte de red de un segundo. Y
+   eso se nota: se cae un turno a mitad, y el resto de la conversacion se queda en
+   la cascada, mas lenta, sin que nadie diga por que.
+
+   Con dos, una causa permanente sigue rindiendose casi al momento (falla dos veces
+   seguidas y ya) y un tropiezo suelto cuesta un reintento. El contador se pone a
+   cero en cuanto un turno responde: lo que descalifica es fallar SEGUIDO, no haber
+   fallado alguna vez. */
+const FALLOS_ANTES_DE_RENDIRSE = 2;
+let fallosDeVozSeguidos = 0;
+
+function vozRealtimeDisponible() {
+  return fallosDeVozSeguidos < FALLOS_ANTES_DE_RENDIRSE;
+}
 
 function estaGrabandoTiempoReal() {
   return sesionVoz !== null;
@@ -624,7 +645,7 @@ async function iniciarVozTiempoReal() {
 // misma latencia, un solo camino de audio que mantener. Si falla, cae a la
 // cascada sin que el usuario tenga que hacer nada distinto.
 async function enviarTexto(texto) {
-  if (!vozRealtimeDeshabilitada) {
+  if (vozRealtimeDisponible()) {
     const ws = await abrirSesionVoz();
     if (ws) {
       const mio = agregarMensaje("usuario");
@@ -693,6 +714,9 @@ function manejarMensajeVoz(evento) {
         hayDefinitivo && Boolean(sesionVoz.definitivo),
       );
     } else if (datos.tipo === "turno_terminado") {
+      // Un turno completo borra el historial de tropiezos: lo que descalifica a la
+      // voz en tiempo real es fallar seguido, no haber fallado alguna vez.
+      fallosDeVozSeguidos = 0;
       sesionVoz.mensajeActual?.hablando(false);
       sesionVoz.rolActual = null;
       sesionVoz.mensajeActual = null;
@@ -790,7 +814,15 @@ function finalizarSesionVoz(codigo) {
   );
 
   if (codigo === CODIGO_CIERRE_FALLBACK) {
-    vozRealtimeDeshabilitada = true;
+    fallosDeVozSeguidos += 1;
+    // Al log del navegador y no a la cara del runner: para diagnosticar por que se
+    // cayo hay que mirar tambien el servidor, y este numero dice cual de los dos
+    // intentos fue. En pantalla, un aviso por cada tropiezo seria peor que el
+    // tropiezo.
+    console.warn(
+      `Voz en tiempo real caida (${fallosDeVozSeguidos}/${FALLOS_ANTES_DE_RENDIRSE}). ` +
+        "Si se repite, mira el log del servidor: 'No se pudo abrir sesion de Nova Sonic'.",
+    );
     if (habiaTurnoActivo) {
       gesto("duda");
       agregarMensaje("coach").escribir(
@@ -822,7 +854,7 @@ async function alternarMicrofono() {
     return;
   }
 
-  if (!vozRealtimeDeshabilitada) {
+  if (vozRealtimeDisponible()) {
     botonMic.disabled = true;
     const conectado = await iniciarVozTiempoReal().catch(() => false);
     botonMic.disabled = false;

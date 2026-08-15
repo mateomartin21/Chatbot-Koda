@@ -47,18 +47,18 @@ def test_los_recursos_compartidos_se_sirven_desde_la_raiz() -> None:
     """Portada y aplicacion comparten hoja de estilos, iconos, fondo y personaje: si
     alguno se moviera de sitio, una de las dos se veria rota y nadie se enteraria.
 
-    Los recortes de Koda estan aqui porque los genera un script a partir de un arte
-    que NO esta en el repo: si alguien limpia `koda/` creyendo que es basura
-    generada, esto se cae en vez de dejar huecos en la interfaz."""
+    Los recortes de Koda y los tamanos del icono estan aqui porque los genera un
+    script: si alguien limpia esas carpetas creyendo que son basura generada, esto se
+    cae en vez de dejar huecos en la interfaz y una pestana sin icono."""
     for ruta in (
         "/styles.css",
         "/landing.css",
         "/iconos.svg",
         "/relieve.svg",
-        "/icono.svg",
         "/manifest.webmanifest",
         "/koda/cara.webp",
         "/koda/cara-duda.webp",
+        "/koda/cara-rie.webp",
         "/koda/corriendo.webp",
         "/iconos-app/icono-180.png",
         "/iconos-app/icono-512.png",
