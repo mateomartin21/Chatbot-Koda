@@ -10,7 +10,7 @@ from uuid import uuid4
 import pytest
 
 from app.application.coach import HERRAMIENTAS, ejecutor_para
-from app.application.contexto import ReposDelCoach
+from app.application.contexto import ReposDelCoach, fecha_hablada
 from app.domain.models import Runner
 from app.domain.ports.llm_port import LlamadaHerramienta
 from tests.fakes.repos import (
@@ -74,6 +74,29 @@ async def test_un_objetivo_imposible_vuelve_como_rechazo_con_alternativa(runner,
     assert "RECHAZADO" in resultado
     assert "21K" in resultado
     assert await repos.planes.obtener_activo(runner.id) is None
+
+
+async def test_el_rechazo_le_devuelve_la_fecha_para_que_no_la_vuelva_a_preguntar(runner, repos):
+    """Hablando pasaba esto: Koda proponia "un 21K" a secas, el runner aceptaba, y en
+    el turno siguiente le preguntaba cuando quiere correr — una fecha que le acababan
+    de decir dos frases antes.
+
+    Entre turno y turno lo unico que sobrevive es lo que Koda dijo en voz alta, asi
+    que el rechazo tiene que devolverle la fecha de tres formas: dicha, con la orden
+    de repetirla, y ya troceada en los argumentos de la proxima llamada."""
+    ejecutar = ejecutor_para(runner, repos, hoy=HOY)
+    carrera = HOY + timedelta(weeks=6)
+
+    resultado = await ejecutar(
+        _llamar("crear_plan", distancia_km=42, dia=carrera.day, mes=carrera.month, anio=carrera.year)
+    )
+
+    assert f"dia {carrera.day}" in resultado
+    assert f"mes {carrera.month}" in resultado
+    assert "NO le preguntes la fecha otra vez" in resultado
+    # Y la fecha hablada, que es la que va a repetir en voz alta y por tanto la unica
+    # que sobrevive al turno.
+    assert fecha_hablada(carrera) in resultado
 
 
 async def test_sin_dia_ni_mes_no_revienta_la_conversacion(runner, repos):

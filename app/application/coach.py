@@ -186,12 +186,22 @@ async def _crear_plan(runner: Runner, repos: ReposDelCoach, argumentos: dict, ho
     except PlanNoViable as no_viable:
         # R6. Que el sistema se niegue no es un error: es la respuesta, y viaja con
         # una alternativa concreta para que el coach tenga algo que ofrecer.
+        #
+        # La FECHA va repetida tres veces a proposito: en la propuesta, en la orden
+        # de decirla en voz alta y en los argumentos de la proxima llamada. Sin eso,
+        # el modelo proponia "un 21K" a secas, el runner aceptaba, y en el turno
+        # siguiente le preguntaba cuando quiere correr — una fecha que le acababan de
+        # decir dos frases antes. Entre turno y turno lo unico que sobrevive es lo que
+        # Koda dijo en voz alta, asi que un dato que no diga, lo pierde.
         alternativa = no_viable.alternativa
         return (
             f"RECHAZADO: {no_viable} No se ha creado ningun plan. "
-            f"Propone al runner un {alternativa.distancia.etiqueta} en su lugar: {alternativa.motivo} "
-            f"Si acepta, vuelve a llamar a crear_plan con distancia_km "
-            f"{alternativa.distancia.km:.0f}."
+            f"Propone al runner un {alternativa.distancia.etiqueta} EL MISMO DIA, "
+            f"el {fecha_hablada(fecha_carrera)}: {alternativa.motivo} "
+            f"Dile la fecha al proponerselo, no digas solo la distancia. "
+            f"Si acepta, llama otra vez a crear_plan con distancia_km "
+            f"{alternativa.distancia.km:.0f}, dia {fecha_carrera.day} y mes {fecha_carrera.month}. "
+            f"NO le preguntes la fecha otra vez: ya la sabes."
         )
     except (ValorInvalido, KeyError, TypeError, ValueError) as invalido:
         return f"No se pudo crear el plan: {invalido}"
