@@ -1669,10 +1669,23 @@ function refrescarPlanTrasElTurno() {
 // =============================================================================
 
 // El tiempo se teclea como se dice ("25:00", "1:42:30"); la API trabaja en segundos.
+// El teclado numerico del movil no tiene tecla ":", asi que escribirlo era imposible
+// desde un telefono — que es justo desde donde se usa esto. En vez de pedir un teclado
+// completo para meter cuatro digitos, los dos puntos se ponen solos: se escriben los
+// numeros de derecha a izquierda (segundos, minutos, horas) y el campo se va formando.
+function conDosPuntos(texto) {
+  const digitos = String(texto).replace(/\D/g, "").slice(0, 6);
+  if (digitos.length <= 2) return digitos;
+  if (digitos.length <= 4) return `${digitos.slice(0, -2)}:${digitos.slice(-2)}`;
+  return `${digitos.slice(0, -4)}:${digitos.slice(-4, -2)}:${digitos.slice(-2)}`;
+}
+
 function aSegundos(texto) {
   if (!texto || !texto.trim()) return null;
-  const partes = texto.trim().split(":").map(Number);
-  if (partes.some(Number.isNaN)) return null;
+  // Se normaliza antes de partir: asi da igual que venga "52:30" del formulario o
+  // "5230" de un pegado, y un teclado que cuele algun caracter raro no lo rompe.
+  const partes = conDosPuntos(texto).split(":").map(Number);
+  if (!partes.length || partes.some(Number.isNaN)) return null;
   return partes.reduce((total, parte) => total * 60 + parte, 0);
 }
 
@@ -1695,6 +1708,9 @@ const camposPerfil = {
   marca_distancia_km: document.getElementById("perfil-marca-km"),
 };
 const campoMarcaTiempo = document.getElementById("perfil-marca-tiempo");
+campoMarcaTiempo?.addEventListener("input", () => {
+  campoMarcaTiempo.value = conDosPuntos(campoMarcaTiempo.value);
+});
 const introPerfil = document.getElementById("intro-perfil");
 const saltarPerfil = document.getElementById("saltar-perfil");
 

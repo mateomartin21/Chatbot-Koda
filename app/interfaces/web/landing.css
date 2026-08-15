@@ -408,11 +408,77 @@
 .pie .ancho {
   display: flex;
   flex-direction: column;
-  gap: var(--e-3);
-  align-items: flex-start;
+  gap: var(--e-4);
+  align-items: stretch;
 }
 
 .pie strong {
+  color: var(--bruma);
+}
+
+/* Una sola columna en el movil y varias cuando cabe. El minimo de 160px es lo que
+   mide el titulo mas largo sin partirse, asi que las columnas se reparten solas sin
+   media query: caben cuatro, caben dos, o cae a una. */
+.pie-columnas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--e-4);
+}
+
+.pie-marca {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-2);
+  max-width: 34ch;
+}
+
+.pie-enlaces {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-1);
+  align-items: flex-start;
+}
+
+.pie-titulo {
+  margin: 0 0 var(--e-1);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--bruma);
+}
+
+.pie-enlaces a {
+  color: var(--bruma);
+  text-decoration: none;
+  font-size: 0.95rem;
+  /* 44px de alto util: en un movil un enlace de pie es de los mas dificiles de
+     acertar con el pulgar, y aqui hay sitio de sobra para darselo. */
+  padding: 0.35rem 0;
+  min-height: 2.75rem;
+  display: flex;
+  align-items: center;
+}
+
+.pie-enlaces a:hover,
+.pie-enlaces a:focus-visible {
+  color: var(--amanecer);
+}
+
+.pie-aviso {
+  margin: 0;
+  padding-top: var(--e-3);
+  border-top: 1px solid var(--linea-tenue);
+  max-width: 68ch;
+}
+
+.pie-abajo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e-1) var(--e-3);
+  justify-content: space-between;
+  padding-top: var(--e-3);
+  border-top: 1px solid var(--linea-tenue);
   color: var(--bruma);
 }
 

@@ -254,7 +254,12 @@
             </div>
             <div>
               <label for="perfil-marca-tiempo">Tiempo</label>
-              <input type="text" id="perfil-marca-tiempo" placeholder="52:30" inputmode="numeric" />
+              <!-- Los ":" los pone app.js segun se escribe: el teclado numerico del
+                   movil no tiene esa tecla y el campo era imposible de rellenar. -->
+              <input type="text" id="perfil-marca-tiempo" placeholder="52:30"
+                     inputmode="numeric" autocomplete="off"
+                     aria-describedby="ayuda-marca-tiempo" />
+              <p class="letra-chica" id="ayuda-marca-tiempo">Solo números: 5230 se convierte en 52:30.</p>
             </div>
           </div>
         </fieldset>
