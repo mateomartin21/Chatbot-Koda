@@ -87,7 +87,9 @@ HERRAMIENTAS: tuple[Herramienta, ...] = (
         descripcion=(
             "Cambia la hora de un recordatorio por correo, lo activa o lo desactiva. "
             "Usala cuando el runner diga cosas como 'avisame a las siete' o 'ya no me "
-            "mandes correos'. Sin argumentos, te dice como los tiene ahora."
+            "mandes correos'. Sin argumentos, te dice como los tiene ahora. Con "
+            "mandar_ahora, le manda ese correo al momento en vez de esperar a su hora "
+            "— para cuando pida verlo ('mandamelo ahora', 'quiero ver como es')."
         ),
         esquema={
             "type": "object",
@@ -96,6 +98,13 @@ HERRAMIENTAS: tuple[Herramienta, ...] = (
                 "hora": {"type": "integer", "minimum": 0, "maximum": 23},
                 "minuto": {"type": "integer", "minimum": 0, "maximum": 59},
                 "activo": {"type": "boolean"},
+                "mandar_ahora": {
+                    "type": "boolean",
+                    "description": (
+                        "Manda ese recordatorio ya, fuera de su hora. No cambia la "
+                        "configuracion: es para enseñarselo."
+                    ),
+                },
             },
         },
     ),
@@ -243,6 +252,24 @@ async def _configurar_recordatorio(runner: Runner, repos: ReposDelCoach, argumen
         tipo = TipoRecordatorio(str(argumentos["tipo"]))
     except ValueError:
         return "Los tipos validos son diario, checkin y semanal."
+
+    # Mandarlo ahora es una peticion distinta de configurarlo: no toca la hora ni el
+    # estado, solo entrega ese correo al momento. Existe porque un recordatorio que
+    # llega a las seis de la mañana es imposible de enseñarle a nadie — ni al runner
+    # que quiere ver como es, ni a quien evalua el proyecto.
+    if argumentos.get("mandar_ahora"):
+        if repos.enviar_aviso_ahora is None:
+            return "Ahora mismo no puedo mandar correos de prueba."
+        enviado = await repos.enviar_aviso_ahora(runner, tipo.value)
+        if not enviado:
+            return (
+                f"No habia nada que contar en el aviso {tipo.value} hoy (por ejemplo, "
+                f"si no le toca entrenar). Diselo y ofrecele otro tipo."
+            )
+        return (
+            f"Mandado el aviso {tipo.value} a {runner.email} ahora mismo. Dile que "
+            f"lo revise, y que a partir de ahora le llegara a su hora."
+        )
 
     anterior = next((r for r in actuales if r.tipo is tipo), None)
     hora = time(

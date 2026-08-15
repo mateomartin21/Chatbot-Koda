@@ -93,6 +93,37 @@ def crear_ejecutor(container: Container):
     return ejecutar
 
 
+async def enviar_aviso_ahora(container: Container, runner: Runner, tipo_texto: str) -> bool:
+    """Manda un aviso fuera de su hora, para poder verlo.
+
+    Un recordatorio que llega a las seis de la mañana no se le puede enseñar a nadie:
+    ni al runner que quiere saber como es antes de fiarse, ni a quien evalua esto y no
+    va a esperar a mañana. Sin esto, la funcion existe y no se puede demostrar.
+
+    Usa el MISMO camino que el job del scheduler, no una copia: si el correo de prueba
+    se redactara aparte, seria posible que el de prueba saliera bien y el de verdad
+    no — que es el peor resultado de los tres.
+    """
+    async with container.session_factory() as session:
+        enviado = await enviar_recordatorio(
+            runner_id=runner.id,
+            tipo=TipoRecordatorio(tipo_texto),
+            repos=ReposDelCoach(
+                runners=SqlRunnerRepo(session),
+                planes=SqlPlanRepo(session),
+                conversaciones=SqlConversacionRepo(session),
+                memoria=SqlMemoriaRepo(session),
+            ),
+            recordatorios=SqlRecordatorioRepo(session),
+            email=container.email,
+            plantilla_html=container.plantilla_recordatorio,
+            url_baja=url_de_baja(runner.id, container.settings),
+            url_app=container.settings.app_base_url,
+        )
+    logger.info("Aviso %s mandado a mano para %s: %s", tipo_texto, runner.id, enviado)
+    return enviado
+
+
 # --- Arranque -------------------------------------------------------------------
 
 

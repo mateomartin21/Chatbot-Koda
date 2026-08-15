@@ -52,3 +52,4 @@ Las negativas son obligatorias. Un ADR sin consecuencias negativas es publicidad
 | [019](ADR-019-una-instancia-y-caddy-para-el-https.md) | Una instancia EC2 con Caddy, y el HTTPS sin comprar dominio | Aceptado |
 | [020](ADR-020-nova-habla-y-sonnet-decide.md) | Nova Sonic habla, el modelo grande decide | Aceptado |
 | [021](ADR-021-una-sola-conversacion-por-runner.md) | Una sola conversación por runner, que sobrevive a cerrar la pestaña | Aceptado |
+| [022](ADR-022-el-correo-tiene-que-llegar-a-cualquiera.md) | El correo tiene que llegarle a alguien que no conozco | Aceptado |

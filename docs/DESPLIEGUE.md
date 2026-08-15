@@ -22,6 +22,52 @@ usuario `koda-dev` de la aplicación no los tiene, y está bien que no los tenga
 
 ---
 
+## 0. Pide acceso de producción a SES. Ahora, antes que nada.
+
+**Sin esto, Koda no le sirve a nadie más que a ti.** SES arranca en *sandbox* y en
+sandbox solo entrega a direcciones verificadas a mano. Como la única forma de entrar es
+un enlace mágico por correo, quien no esté verificado no puede ni entrar — verá lo
+mismo que si la aplicación estuviera rota. Ver
+[ADR-022](adr/ADR-022-el-correo-tiene-que-llegar-a-cualquiera.md).
+
+Consola de SES → **Account dashboard** → *Request production access*:
+
+| Campo | Qué poner |
+|---|---|
+| Mail type | **Transactional** |
+| Website URL | La del repositorio, o la de tu portada cuando la tengas |
+| Use case | Que es un entrenador de running que manda enlaces de acceso de un solo uso y recordatorios de entrenamiento; que solo escribe a quien se registra; y que cada correo lleva enlace de baja |
+| Compliance | Que los rebotes y quejas se atienden dando de baja la dirección |
+
+**Va primero porque lo aprueba AWS cuando quiere** — a veces en una hora, a veces al día
+siguiente. Pídelo ahora y sigue con el resto del despliegue mientras tanto.
+
+### Si no llega a tiempo: el plan B
+
+`PROVIDER_EMAIL=smtp` y Koda manda por SMTP en vez de por SES. Con Gmail, que envía a
+cualquier dirección sin dominio propio:
+
+1. En tu cuenta de Google, verificación en dos pasos activada.
+2. [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords) →
+   crea una contraseña de aplicación.
+3. En el `.env` del servidor:
+
+```bash
+PROVIDER_EMAIL=smtp
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=tucorreo@gmail.com
+SMTP_PASSWORD=            # los 16 caracteres de la contraseña de aplicación
+```
+
+`docker compose up -d` y ya. No hace falta tocar una línea de código: el adaptador de
+correo es un puerto.
+
+> Ojo: un correo enviado desde Gmail a un dominio corporativo tiene bastantes papeletas
+> de caer en spam. Si SES de producción llega, vuelve a `PROVIDER_EMAIL=aws`.
+
+---
+
 ## 1. Crear la instancia
 
 Consola de EC2 → **Lanzar instancia**.

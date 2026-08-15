@@ -42,6 +42,15 @@ class Settings(BaseSettings):
     s3_bucket: str | None = None
     s3_signed_url_ttl_seconds: int = 600
 
+    # SMTP (PROVIDER_EMAIL=smtp). El plan B del correo mientras SES siga en sandbox:
+    # en sandbox SES solo entrega a direcciones verificadas a mano, y eso deja fuera a
+    # cualquiera que no conozcas de antemano. Ver docs/adr/ADR-022.
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_user: str | None = None
+    smtp_password: str | None = None
+    smtp_from: str | None = None
+
     # Plan B (solo si PROVIDER_* = fallback)
     groq_api_key: str | None = None
     groq_stt_model: str = "whisper-large-v3-turbo"

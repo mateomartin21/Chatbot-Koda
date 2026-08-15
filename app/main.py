@@ -42,6 +42,10 @@ def _ajustes_que_faltan(settings: Any) -> list[str]:
         faltan.append("BEDROCK_MODEL_ID (sin el no hay modelo principal)")
     if settings.provider_email == "aws" and not settings.ses_from_email:
         faltan.append("SES_FROM_EMAIL (sin el no salen los enlaces magicos)")
+    if settings.provider_email != "aws" and not (
+        settings.smtp_host and settings.smtp_user and settings.smtp_password
+    ):
+        faltan.append("SMTP_HOST/SMTP_USER/SMTP_PASSWORD (PROVIDER_EMAIL no es 'aws')")
     return faltan
 
 

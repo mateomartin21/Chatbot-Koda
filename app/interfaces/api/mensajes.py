@@ -30,7 +30,7 @@ from app.interfaces.api.deps import (
     get_tts_port,
     lanzar_extraccion_de_memoria,
 )
-from app.interfaces.avisos import programar_para
+from app.interfaces.avisos import enviar_aviso_ahora, programar_para
 
 router = APIRouter(prefix="/api", tags=["mensajes"])
 logger = logging.getLogger(__name__)
@@ -118,6 +118,7 @@ async def enviar_mensaje(
         memoria=repos.memoria,
         recordatorios=repos.recordatorios,
         reprogramar=lambda r: programar_para(r, repos.recordatorios, scheduler),
+        enviar_aviso_ahora=lambda r, tipo: enviar_aviso_ahora(container, r, tipo),
     )
     contexto = await construir_contexto(runner, repos_coach)
     respuesta = await procesar_mensaje(

@@ -17,6 +17,7 @@ from tests.fakes.repos import (
     InMemoryConversacionRepo,
     InMemoryMemoriaRepo,
     InMemoryPlanRepo,
+    InMemoryRecordatorioRepo,
     InMemoryRunnerRepo,
 )
 
@@ -191,3 +192,54 @@ async def test_el_anio_explicito_manda_sobre_la_deduccion(runner, repos):
     activo = await repos.planes.obtener_activo(runner.id)
     assert activo is not None
     assert activo.objetivo.fecha_carrera == date(2027, 11, 15)
+
+
+async def test_mandar_ahora_entrega_el_aviso_fuera_de_su_hora(runner, repos):
+    """Un recordatorio que llega a las seis de la mañana no se le puede enseñar a
+    nadie. Sin esto, la funcion existe y no hay forma de demostrarla."""
+    mandados = []
+
+    async def fake_enviar(r, tipo):
+        mandados.append((r.id, tipo))
+        return True
+
+    repos.recordatorios = InMemoryRecordatorioRepo()
+    repos.enviar_aviso_ahora = fake_enviar
+    ejecutar = ejecutor_para(runner, repos, hoy=HOY)
+
+    respuesta = await ejecutar(_llamar("configurar_recordatorio", tipo="diario", mandar_ahora=True))
+
+    assert mandados == [(runner.id, "diario")]
+    assert runner.email in respuesta
+
+
+async def test_mandar_ahora_no_cambia_la_hora_configurada(runner, repos):
+    """Es enseñarlo, no reconfigurarlo. Si de paso moviera la hora, el runner
+    acabaria recibiendo el aviso diario a las once de la noche por haber pedido verlo."""
+
+    async def fake_enviar(_r, _tipo):
+        return True
+
+    repos.recordatorios = InMemoryRecordatorioRepo()
+    repos.enviar_aviso_ahora = fake_enviar
+    ejecutar = ejecutor_para(runner, repos, hoy=HOY)
+
+    await ejecutar(_llamar("configurar_recordatorio", tipo="diario", hora=6))
+    antes = await repos.recordatorios.de_runner(runner.id)
+    await ejecutar(_llamar("configurar_recordatorio", tipo="diario", mandar_ahora=True, hora=23))
+    despues = await repos.recordatorios.de_runner(runner.id)
+
+    assert [(r.tipo, r.hora_local) for r in antes] == [(r.tipo, r.hora_local) for r in despues]
+
+
+async def test_si_no_hay_nada_que_contar_lo_dice_en_vez_de_mandar_un_correo_vacio(runner, repos):
+    async def fake_enviar(_r, _tipo):
+        return False
+
+    repos.recordatorios = InMemoryRecordatorioRepo()
+    repos.enviar_aviso_ahora = fake_enviar
+    ejecutar = ejecutor_para(runner, repos, hoy=HOY)
+
+    respuesta = await ejecutar(_llamar("configurar_recordatorio", tipo="diario", mandar_ahora=True))
+
+    assert "no habia nada que contar" in respuesta.lower()

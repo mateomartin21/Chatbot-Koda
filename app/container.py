@@ -13,6 +13,7 @@ from app.domain.ports.stt_port import STTPort
 from app.domain.ports.tts_port import TTSPort
 from app.domain.ports.voz_realtime_port import VozRealtimePort
 from app.infrastructure.email.ses import SESEmail
+from app.infrastructure.email.smtp import SMTPEmail
 from app.infrastructure.llm.bedrock_converse import BedrockConverse
 from app.infrastructure.llm.groq_llm import GroqLLM
 from app.infrastructure.llm.model_gateway import ModelGatewayLLM
@@ -54,9 +55,10 @@ class Container:
 def build_container(settings: Settings | None = None) -> Container:
     settings = settings or get_settings()
 
-    # Plan B (docs/contexto/00-CONTEXTO.md): cuando exista ResendEmail, este es el
-    # unico "if" que cambia segun settings.provider_email. Hoy solo hay adaptador AWS.
-    email: EmailPort = SESEmail(settings)
+    # PROVIDER_EMAIL=smtp es el plan B mientras SES siga en sandbox — donde solo
+    # entrega a direcciones verificadas a mano, es decir, a nadie que no conozcas de
+    # antemano. Ver docs/adr/ADR-022-el-correo-tiene-que-llegar-a-cualquiera.md.
+    email: EmailPort = SESEmail(settings) if settings.provider_email == "aws" else SMTPEmail(settings)
 
     # STT en "fallback" desde 2026-08-14: Transcribe bloqueado por cuenta nueva.
     # Ver docs/adr/ADR-009-groq-stt-temporal.md. Volver a "aws" es cambiar esta linea.

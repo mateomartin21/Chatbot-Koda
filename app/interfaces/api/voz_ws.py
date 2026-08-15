@@ -41,7 +41,7 @@ from app.interfaces.api.deps import (
     lanzar_extraccion_de_memoria,
     runner_desde_token,
 )
-from app.interfaces.avisos import programar_para
+from app.interfaces.avisos import enviar_aviso_ahora, programar_para
 
 router = APIRouter(tags=["voz"])
 logger = logging.getLogger(__name__)
@@ -82,6 +82,7 @@ async def voz_realtime(
         memoria=repos.memoria,
         recordatorios=repos.recordatorios,
         reprogramar=lambda r: programar_para(r, repos.recordatorios, scheduler),
+        enviar_aviso_ahora=lambda r, tipo: enviar_aviso_ahora(container, r, tipo),
     )
     try:
         # Nova Sonic NO recibe el contexto del runner ni las cinco herramientas del

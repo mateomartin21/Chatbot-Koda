@@ -65,6 +65,9 @@ class ReposDelCoach:
     # Reprogramar es un efecto sobre el scheduler, no una consulta: se inyecta como
     # funcion para que esta capa no sepa que existe APScheduler.
     reprogramar: Callable[[Runner], Awaitable[None]] | None = None
+    # Mandar un aviso YA, fuera de su hora. Se inyecta igual y por lo mismo: esta capa
+    # no sabe que existen SES, SMTP ni una plantilla HTML.
+    enviar_aviso_ahora: Callable[[Runner, str], Awaitable[bool]] | None = None
 
 
 @dataclass(frozen=True)
