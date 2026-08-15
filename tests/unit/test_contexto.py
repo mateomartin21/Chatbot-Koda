@@ -191,3 +191,52 @@ async def test_un_plan_ya_en_marcha_no_avisa_de_nada(runner, repos):
     )
 
     assert "todavia no ha empezado" not in ya_empezado
+
+
+async def test_lo_ultimo_que_dijo_koda_va_arriba_y_con_la_orden_de_no_repetirlo(runner, repos):
+    """El bug que esto arregla se vio hablando: Koda propone un 21K porque el maraton
+    no da tiempo, el runner dice "si, creame ese plan" — y Koda suelta la misma frase
+    otra vez, tres veces seguidas. Con su ultima linea en la ventana y un "si" detras,
+    un modelo pequeno la repite en vez de actuar.
+
+    Sepultada entre diez turnos, la instruccion se ignoraba. Se comprueba que va cerca
+    del principio porque el SITIO es la mitad del arreglo (mismo hallazgo que ADR-013)."""
+    await repos.conversaciones.guardar(
+        runner.id,
+        [
+            Mensaje(rol="usuario", contenido="quiero correr un maraton el 20 de noviembre"),
+            Mensaje(rol="coach", contenido="No da tiempo. Te propongo un 21K el 20 de noviembre."),
+            Mensaje(rol="usuario", contenido="si, creame ese plan"),
+        ],
+    )
+
+    prompt = await _prompt_de(runner, repos)
+
+    assert "Lo ULTIMO que dijiste en voz alta" in prompt
+    assert "Te propongo un 21K el 20 de noviembre." in prompt
+    assert "NO lo repitas" in prompt
+    assert "lo que TU propusiste" in prompt
+    # Antes de su plan, de lo que recuerda y de la transcripcion: al final se ignoraba.
+    assert prompt.index("Lo ULTIMO que dijiste") < prompt.index("De lo que veniais hablando")
+
+
+async def test_sin_turnos_previos_no_hay_bloque_de_lo_ultimo(runner, repos):
+    """En el primer mensaje no hay nada que no repetir, y un bloque vacio solo gasta
+    contexto en un modelo que ya atiende justo."""
+    assert "Lo ULTIMO que dijiste" not in await _prompt_de(runner, repos)
+
+
+async def test_si_el_ultimo_turno_es_del_runner_se_usa_igual_la_frase_de_koda(runner, repos):
+    """El runner siempre habla el ultimo — es lo que dispara el turno. Lo que hay que
+    poner delante es la ultima frase de KODA, no la mas reciente de la conversacion."""
+    await repos.conversaciones.guardar(
+        runner.id,
+        [
+            Mensaje(rol="coach", contenido="¿Cuantos dias por semana puedes correr?"),
+            Mensaje(rol="usuario", contenido="cinco"),
+        ],
+    )
+
+    prompt = await _prompt_de(runner, repos)
+
+    assert '"¿Cuantos dias por semana puedes correr?"' in prompt

@@ -160,6 +160,11 @@ def perfil_hablado(runner: Runner) -> str:
 # --- Ensamblado -----------------------------------------------------------------
 
 
+def _lo_ultimo_que_dijiste(recientes: list[Mensaje]) -> str | None:
+    """La ultima frase del coach, que casi siempre es una pregunta sin contestar."""
+    return next((m.contenido for m in reversed(recientes) if m.rol == "coach"), None)
+
+
 async def construir_contexto(
     runner: Runner, repos: ReposDelCoach, hoy: date | None = None
 ) -> ContextoConversacion:
@@ -189,6 +194,25 @@ def construir_system_prompt(base: str, contexto: ContextoConversacion) -> str:
         f"que ocurra. Nunca preguntes en que anio estamos.",
         perfil_hablado(contexto.runner),
     ]
+
+    # Va AQUI, arriba del todo, y no dentro de la transcripcion de mas abajo. Nova
+    # Sonic es un modelo pequeno de tiempo real y atiende mucho mejor al principio
+    # (mismo hallazgo que motivo el ADR-013). Sepultado entre diez turnos, esto se
+    # ignoraba; en el segundo bloque, se cumple.
+    #
+    # El fallo que arregla se vio hablando: Koda propone un 21K porque el maraton no
+    # da tiempo, el runner dice "si, creame ese plan" — y Koda vuelve a soltar la
+    # misma frase, palabra por palabra, tres veces seguidas. Con su ultima linea
+    # delante y un "si" detras, el modelo pequeno la repite en vez de actuar.
+    if (ultima := _lo_ultimo_que_dijiste(contexto.recientes)) is not None:
+        bloques.append(
+            "## Lo ULTIMO que dijiste en voz alta\n"
+            f'"{ultima}"\n'
+            "Ya lo oyo. NO lo repitas, ni entero ni con otras palabras. Si ahi le "
+            "propusiste algo y ahora te dice que si, EJECUTALO con la herramienta que "
+            "toque — con lo que TU propusiste, no con lo que el pidio al principio. Si "
+            "todavia no te ha contestado a eso, sigue desde ahi."
+        )
 
     if contexto.plan is not None:
         bloques.append("## Su plan\n" + plan_hablado(contexto.plan, contexto.proxima_sesion, contexto.hoy))
