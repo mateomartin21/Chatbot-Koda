@@ -193,14 +193,21 @@ function estado(texto) {
   estadoKoda.textContent = texto || ESTADO_EN_REPOSO;
 }
 
-/* La cara de la cabecera cambia de gesto cuando algo sale mal, y vuelve sola.
-   Es la unica expresion que se dispara: un personaje que sonrie en cada mensaje
-   deja de significar nada, y la queja de siempre de un chat es que el error se lee
-   igual que una respuesta normal. El gesto lo hace visible sin un cartel rojo.
+/* La cara de la cabecera cambia de gesto y vuelve sola. Solo dos cosas lo disparan,
+   y las dos son hechos, no estados de ánimo:
 
-   Las dos caras se precargan al arrancar; sin eso el cambio empieza con el hueco
-   en blanco y se lee como un fallo de carga, justo cuando ya hubo uno de verdad. */
-const CARAS = { normal: "/koda/cara.webp", duda: "/koda/cara-duda.webp" };
+   - algo falló — la queja de siempre de un chat es que un error se lee igual que
+     una respuesta normal; el gesto lo hace visible sin un cartel rojo;
+   - acabas de tener un plan que antes no tenías.
+
+   Un personaje que reacciona a cada mensaje deja de significar nada. Las caras se
+   precargan al arrancar; sin eso el cambio empieza con el hueco en blanco y se lee
+   como un fallo de carga, justo cuando a lo mejor ya hubo uno de verdad. */
+const CARAS = {
+  normal: "/koda/cara.webp",
+  duda: "/koda/cara-duda.webp",
+  celebra: "/koda/cara-rie.webp",
+};
 const caraKoda = document.getElementById("cara-koda");
 let vueltaAlaCalma = null;
 
@@ -370,6 +377,7 @@ async function enviarMensaje({ texto, audioBlob, foto, mensajeUsuarioYaPuesto = 
     }
     const data = await resp.json();
     respuesta.escribir(data.texto);
+    refrescarPlanTrasElTurno();
     if (data.audio_base64) reproducirMp3(data.audio_base64, respuesta);
   } catch {
     dejarDeEsperar();
@@ -688,6 +696,7 @@ function manejarMensajeVoz(evento) {
       sesionVoz.mensajeActual?.hablando(false);
       sesionVoz.rolActual = null;
       sesionVoz.mensajeActual = null;
+      refrescarPlanTrasElTurno();
       // Un turno por sesion en esta version: se cierra aqui, no al soltar el
       // boton. El audio ya agendado sigue sonando — finalizarSesionVoz() espera
       // a que termine antes de cerrar el AudioContext.
@@ -1306,13 +1315,20 @@ function pintarPlan(plan) {
   contenidoPlan.replaceChildren();
 
   if (!plan) {
-    contenidoPlan.appendChild(
-      nodoVacio(
-        "meta",
-        "Todavía no tienes plan",
-        "Dile a Koda qué carrera quieres correr y para cuándo. Te lo arma en el momento.",
-      ),
+    // Aquí Koda sale corriendo y no como un icono de línea: es la única pantalla del
+    // panel que está vacía de verdad, y un hueco con una silueta gris se lee como
+    // algo que falló al cargar. Con el personaje se lee como lo que es — todavía no
+    // hay nada porque no se lo has pedido.
+    const vacio = nodoVacio(
+      "meta",
+      "Todavía no tienes plan",
+      "Dile a Koda qué carrera quieres correr y para cuándo. Te lo arma en el momento.",
     );
+    vacio.classList.add("vacio-con-koda");
+    vacio.querySelector("svg")?.replaceWith(
+      Object.assign(new Image(491, 520), { src: "/koda/corriendo.webp", alt: "" }),
+    );
+    contenidoPlan.appendChild(vacio);
     return;
   }
 
@@ -1412,23 +1428,56 @@ function escalonarEntrada(contenedor) {
   contenedor.classList.add("escalonar");
 }
 
-async function cargarPlan({ abrir = true } = {}) {
+/* Lo que hace único a un plan. Sirve para saber si el que acaba de llegar es otro,
+   sin comparar el objeto entero: la API devuelve las semanas calculadas y dos
+   respuestas del mismo plan no tienen por qué ser idénticas byte a byte. */
+function huellaDelPlan(plan) {
+  return plan ? `${plan.distancia_km}|${plan.fecha_carrera}|${plan.fecha_inicio}` : null;
+}
+
+// undefined = todavía no se ha mirado nunca. Distinto de null, que es "se miró y no
+// hay plan": sin esa diferencia, abrir la app con un plan de hace tres semanas se
+// celebraría como si Koda acabara de armarlo.
+let planConocido;
+
+async function cargarPlan({ abrir = true, silencioso = false } = {}) {
   if (abrir) abrirPanel(panelPlan);
 
   // Esqueleto con la forma de lo que va a llegar, no una ruleta: cuando el
-  // contenido aparece no salta nada de sitio.
-  const esqueleto = crear("div", "esqueleto");
-  esqueleto.style.height = "190px";
-  contenidoPlan.replaceChildren(esqueleto);
+  // contenido aparece no salta nada de sitio. En la recarga de después de cada
+  // turno no se pone: el panel ya tiene contenido bueno delante y sustituirlo por
+  // un esqueleto sería un parpadeo por cada frase que dice Koda.
+  if (!silencioso) {
+    const esqueleto = crear("div", "esqueleto");
+    esqueleto.style.height = "190px";
+    contenidoPlan.replaceChildren(esqueleto);
+  }
 
   try {
     const resp = await fetch("/api/plan");
-    pintarPlan(resp.ok ? await resp.json() : null);
+    const plan = resp.ok ? await resp.json() : null;
+    const huella = huellaDelPlan(plan);
+    const cambio = huella !== planConocido;
+    if (planConocido !== undefined && huella && cambio) gesto("celebra");
+    planConocido = huella;
+    // En la recarga silenciosa solo se repinta si de verdad cambió algo. Repintar
+    // por repintar relanzaría la cascada de entrada de las tarjetas en cada frase
+    // que dice Koda, con el panel anclado y a la vista.
+    if (cambio || !silencioso) pintarPlan(plan);
   } catch {
+    if (silencioso) return; // el panel se queda como estaba; ya se avisará al abrirlo
     contenidoPlan.replaceChildren(
       nodoVacio("alerta", "No pude cargar tu plan", "Revisa tu conexión e inténtalo otra vez."),
     );
   }
+}
+
+/* Koda puede haber creado o cambiado el plan durante el turno — lo hace con una
+   herramienta, y el navegador no se entera. Sin esto, el panel enseñaba el plan
+   viejo hasta que al runner se le ocurría volver a abrirlo, justo después de oír
+   "ya te lo armé". */
+function refrescarPlanTrasElTurno() {
+  cargarPlan({ abrir: false, silencioso: true }).catch(() => {});
 }
 
 // =============================================================================

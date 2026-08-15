@@ -14,6 +14,12 @@ callejon sin salida, y nadie sabria como se hizo.
 
 El arte original va en el repo (en WebP sin perdida, la mitad que el PNG) porque sin
 el este fichero seria documentacion en vez de una herramienta.
+
+No todas las poses de la hoja salen. Las que caen en la esquina oscura — el lobo con
+gafas y el de cuerpo entero — tienen un chandal negro pegado a un fondo casi negro,
+y sin un contorno claro que los separe no hay umbral que valga: o se come el chandal
+o deja el fondo. Se recortan las que si salen limpias y se prescinde del resto, que
+es mas honesto que publicar un recorte con agujeros.
 """
 
 from __future__ import annotations
@@ -31,7 +37,12 @@ ICONOS = RAIZ / "app" / "interfaces" / "web" / "iconos-app"
 # Cuanto se puede alejar un pixel del vecino desde el que crece la region antes de
 # considerarlo parte del dibujo. El fondo es un degradado, asi que comparar contra
 # un color fijo no sirve: hay que comparar contra el vecino.
-TOLERANCIA = 40
+#
+# Tambien va por recorte. Donde el fondo es oscuro, el lobo tambien lo es y el muro
+# de luminancia no separa nada: lo unico que los distingue es el contorno claro, y
+# para no treparlo por su antialias hay que exigir saltos pequenos. Donde el fondo es
+# claro y uniforme se puede ser generoso y limpiar tambien la sombra.
+TOLERANCIA_POR_DEFECTO = 40
 
 # Luminancia a partir de la cual un pixel deja de poder ser fondo. Cada pose viene
 # rodeada de un contorno claro, y ese contorno es el muro que para la region: sin
@@ -52,15 +63,23 @@ MURO_POR_DEFECTO = 168
 # Caja en la hoja (1536x1024), altura final en pixeles CSS x2 (pantallas densas),
 # suelo y muro. Las cajas van holgadas a proposito: la region crece desde el borde,
 # asi que el borde tiene que ser fondo limpio. Lo que sobre lo quita el recorte.
-RECORTES: dict[str, tuple[tuple[int, int, int, int], int, int, int]] = {
+# nombre: (caja, altura final, suelo, muro, tolerancia)
+RECORTES: dict[str, tuple[tuple[int, int, int, int], int, int, int, int]] = {
     # La cara neutra es la que mas se ve: cabecera del chat y tarjeta de entrar.
-    "cara": ((382, 0, 648, 282), 256, 0, 168),
-    # Ojos cerrados y sonrisa: cuando algo sale bien.
-    "cara-contento": ((886, 0, 1136, 272), 256, 0, 168),
-    # Con gota de sudor: cuando Koda dice que no o algo falla.
-    "cara-duda": ((1338, 414, 1536, 586), 256, 0, 168),
-    # Corriendo. Va en el cierre de la portada.
-    "corriendo": ((362, 268, 730, 660), 520, 44, 128),
+    "cara": ((382, 0, 648, 282), 256, 0, 168, 40),
+    # Ojos cerrados y sonrisa: la bienvenida.
+    "cara-contento": ((886, 0, 1136, 272), 256, 0, 168, 40),
+    # Con gota de sudor: cuando algo falla.
+    "cara-duda": ((1338, 414, 1536, 586), 256, 0, 168, 40),
+    # Riendo: cuando acaba de crearte el plan. Tolerancia corta porque aqui el fondo
+    # de la hoja es oscuro y el muro de luminancia no separa a un lobo negro de el:
+    # lo unico que los distingue es el contorno claro, y para no treparlo por su
+    # antialias hay que exigir saltos pequenos.
+    "cara-rie": ((1330, 556, 1536, 788), 256, 0, 168, 14),
+    # Corriendo. Se usa la pose de la derecha de la hoja y no la de la izquierda:
+    # aquella tiene pegado un objeto de la vecina que le sale por detras de la cola,
+    # y como esta unido al dibujo, quedarse con la mancha grande no lo quita.
+    "corriendo": ((1006, 262, 1364, 676), 520, 44, 128, 40),
 }
 
 # El icono de aplicacion ya viene cuadrado y con sus esquinas redondeadas: solo hay
@@ -68,7 +87,12 @@ RECORTES: dict[str, tuple[tuple[int, int, int, int], int, int, int]] = {
 TAMANOS_ICONO = (32, 180, 192, 512)
 
 
-def quitar_fondo(imagen: Image.Image, suelo: int = 0, muro: int = MURO_POR_DEFECTO) -> Image.Image:
+def quitar_fondo(
+    imagen: Image.Image,
+    suelo: int = 0,
+    muro: int = MURO_POR_DEFECTO,
+    tolerancia: int = TOLERANCIA_POR_DEFECTO,
+) -> Image.Image:
     """Borra el fondo creciendo una region desde los bordes hacia dentro.
 
     Un `floodfill` normal compara cada pixel contra el del punto de partida, y aqui
@@ -102,7 +126,7 @@ def quitar_fondo(imagen: Image.Image, suelo: int = 0, muro: int = MURO_POR_DEFEC
         encolar(0, y)
         encolar(ancho - 1, y)
 
-    limite = TOLERANCIA * TOLERANCIA * 3
+    limite = tolerancia * tolerancia * 3
     while cola:
         x, y, (pr, pg, pb) = cola.popleft()
         for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
@@ -188,8 +212,8 @@ def main() -> int:
     ICONOS.mkdir(parents=True, exist_ok=True)
 
     hoja = Image.open(hoja_ruta).convert("RGBA")
-    for nombre, (caja, altura, suelo, muro) in RECORTES.items():
-        sin_fondo = quitar_fondo(hoja.crop(caja), suelo, muro)
+    for nombre, (caja, altura, suelo, muro, tolerancia) in RECORTES.items():
+        sin_fondo = quitar_fondo(hoja.crop(caja), suelo, muro, tolerancia)
         pose = recortar_a_lo_que_pinta(dejar_solo_la_pieza_grande(sin_fondo))
         ancho = round(pose.width * altura / pose.height)
         pose = pose.resize((ancho, altura), Image.Resampling.LANCZOS)
