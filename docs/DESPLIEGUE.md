@@ -30,14 +30,41 @@ un enlace mágico por correo, quien no esté verificado no puede ni entrar — v
 mismo que si la aplicación estuviera rota. Ver
 [ADR-022](adr/ADR-022-el-correo-tiene-que-llegar-a-cualquiera.md).
 
-Consola de SES → **Account dashboard** → *Request production access*:
+**El botón de la consola no sirve aquí.** En *SES → Prepárese → Solicitar acceso a
+producción* sale gris, con «Error de verificación de dominio» debajo: la consola exige
+un dominio verificado antes de dejarte enviar el formulario. Es una traba de la consola
+y no de SES — el sandbox limita *a quién* envías, verificar un dominio permite enviar
+*desde* él, y son cosas distintas. Sin dominio propio
+([ADR-010](adr/ADR-010-sin-dominio-propio-para-ses.md)) ese botón no se activa nunca.
 
-| Campo | Qué poner |
-|---|---|
-| Mail type | **Transactional** |
-| Website URL | La del repositorio, o la de tu portada cuando la tengas |
-| Use case | Que es un entrenador de running que manda enlaces de acceso de un solo uso y recordatorios de entrenamiento; que solo escribe a quien se registra; y que cada correo lleva enlace de baja |
-| Compliance | Que los rebotes y quejas se atienden dando de baja la dirección |
+La API no comprueba nada de eso. Abre **CloudShell** — abajo a la izquierda en la
+consola, ya viene autenticado — y lanza:
+
+```bash
+aws sesv2 put-account-details \
+  --production-access-enabled \
+  --mail-type TRANSACTIONAL \
+  --website-url "https://github.com/mateomartin21/Chatbot-Koda" \
+  --contact-language EN \
+  --additional-contact-email-addresses "tu@correo.com" \
+  --use-case-description "Koda is a conversational running coach. It sends two kinds of email, both requested by the user: a single-use sign-in link, which is the only way to log in, and training reminders that the user configures and can turn off from the app. We only write to addresses that signed up for the service; there are no imported lists and no bulk sending. Bounces and complaints are handled by permanently suppressing the address. Every email includes an unsubscribe link." \
+  --region us-east-1
+```
+
+`--contact-language` solo acepta `EN` o `JA`: con `ES` falla la validación.
+
+Si no imprime nada, está enviada. Se comprueba así:
+
+```bash
+aws sesv2 get-account --region us-east-1 --query 'Details.ReviewDetails'
+```
+
+`"Status": "PENDING"` es que está en revisión. Al aprobarla, `ProductionAccessEnabled`
+pasa a `true` y la cuota diaria sube de 200 a 50.000 — pero lo que importa no es la
+cuota, es que desaparece la restricción de destinatarios verificados.
+
+Si la API también fallara, la tercera puerta es **Support → Create case → Service limit
+increase → SES Sending Limits**: lo atiende el mismo equipo y tampoco pide dominio.
 
 **Va primero porque lo aprueba AWS cuando quiere** — a veces en una hora, a veces al día
 siguiente. Pídelo ahora y sigue con el resto del despliegue mientras tanto.
