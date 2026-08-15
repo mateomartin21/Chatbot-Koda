@@ -1,0 +1,47 @@
+# Caddy delante de Koda: HTTPS y nada mas.
+#
+# El certificado no se gestiona aqui. Caddy pide uno a Let's Encrypt la primera vez
+# que arranca y lo renueva solo. Por eso el HTTPS de este proyecto no es una tarea
+# pendiente ni un script de cron: es el comportamiento por defecto del proxy.
+#
+# Y el HTTPS no es cosmetico. `getUserMedia` — el microfono — solo existe en un
+# origen seguro: sin certificado, Koda no puede oir a nadie desde un movil.
+
+{$DOMINIO} {
+	encode zstd gzip
+
+	# `reverse_proxy` habla WebSocket sin configuracion extra desde Caddy 2: pasa el
+	# Upgrade tal cual. Es lo que necesita /ws/voz para Nova Sonic, y es la razon
+	# por la que este proyecto no puede desplegarse en un servicio que solo sirva
+	# peticiones HTTP sueltas.
+	reverse_proxy app:8000 {
+		# Sin esto, la aplicacion ve la IP de Caddy en todas las peticiones y el
+		# limite de enlaces magicos por IP protegeria a un solo cliente: el proxy.
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+
+		# Un turno de voz puede pasar mucho rato sin un solo byte mientras el modelo
+		# piensa. Con el valor por defecto, el proxy corta la conexion antes de que
+		# Nova Sonic conteste.
+		transport http {
+			read_timeout 300s
+			write_timeout 300s
+		}
+	}
+
+	header {
+		# HSTS: una vez visto por HTTPS, el navegador no vuelve a intentarlo por HTTP.
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		# El microfono y la camara los usa Koda; nadie mas, ni un iframe incrustado.
+		Permissions-Policy "microphone=(self), camera=(self), geolocation=()"
+		-Server
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

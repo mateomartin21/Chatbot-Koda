@@ -1,0 +1,27 @@
+# El contexto de build se manda entero al daemon: sin esto viajan el entorno
+# virtual, el historial de git y 2 MB de arte que la imagen no usa.
+.git
+.github
+.venv
+venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.ruff_cache
+.mypy_cache
+
+# Secretos. El .env se monta en el servidor, NUNCA se hornea en la imagen: una
+# imagen se comparte, se sube a un registro y se queda en el historial de capas.
+.env
+.env.*
+!.env.example
+
+# Solo hacen falta para regenerar los recortes, y eso se hace en local.
+arte/
+scripts/
+
+# No se ejecutan dentro de la imagen; corren en CI, que usa el repo entero.
+tests/
+docs/
+README.md
+CLAUDE.md

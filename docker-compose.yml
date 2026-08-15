@@ -1,0 +1,77 @@
+# Koda en un servidor: base de datos, aplicacion y el proxy que le pone el HTTPS.
+#
+# Todo lo que cambia entre maquinas vive en el .env de al lado, que no esta en el
+# repositorio. Levantar Koda en un servidor limpio son tres pasos: clonar, escribir
+# el .env y `docker compose up -d`.
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: koda
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?falta POSTGRES_PASSWORD en el .env}
+      POSTGRES_DB: koda
+    volumes:
+      - datos-koda:/var/lib/postgresql/data
+    # Sin puertos publicados: solo se llega desde la red interna de compose. La base
+    # de datos no tiene por que ser alcanzable desde internet ni un segundo.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U koda -d koda"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Las migraciones se aplican en un contenedor aparte que corre y termina, no en el
+  # arranque de la aplicacion. Asi un fallo de migracion se ve como un fallo de
+  # despliegue y no como una aplicacion que arranca y contesta 500 a todo.
+  migraciones:
+    build: .
+    command: ["alembic", "upgrade", "head"]
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://koda:${POSTGRES_PASSWORD}@db:5432/koda
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://koda:${POSTGRES_PASSWORD}@db:5432/koda
+    depends_on:
+      migraciones:
+        condition: service_completed_successfully
+    # Tampoco publica puertos: la unica puerta desde fuera es Caddy.
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health').status==200 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      # El nombre publico. Con sslip.io no hace falta comprar dominio: el DNS
+      # resuelve 1-2-3-4.sslip.io a 1.2.3.4, y Let's Encrypt firma un certificado
+      # de verdad para ese nombre. Ver docs/DESPLIEGUE.md.
+      DOMINIO: ${DOMINIO:?falta DOMINIO en el .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-datos:/data
+      - caddy-config:/config
+    depends_on:
+      - app
+
+volumes:
+  datos-koda:
+  caddy-datos:
+  caddy-config:

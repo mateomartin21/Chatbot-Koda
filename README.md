@@ -75,13 +75,38 @@ uvicorn app.main:app --reload
 Abre `http://localhost:8000` — esa es la página pública. La aplicación está en
 `http://localhost:8000/app/`: introduce tu correo y sigue el enlace que recibas.
 
-> ⚠️ **En móvil hace falta HTTPS**: `getUserMedia` no funciona sobre HTTP y no hay excepción de `localhost` desde otro dispositivo.
+> ⚠️ **En móvil hace falta HTTPS**: `getUserMedia` no funciona sobre HTTP y no hay excepción de `localhost` desde otro dispositivo. Por eso el despliegue no es el último paso de la lista, es lo que desbloquea la mitad del proyecto — ver abajo.
 
 **Tests:**
 
 ```powershell
 pytest                      # suite completa: sin red, sin coste
 pytest tests/security -v    # aislamiento entre usuarios
+```
+
+---
+
+## Ponerlo en internet
+
+Tres contenedores en una instancia EC2 — PostgreSQL, la aplicación y Caddy, que pide
+el certificado a Let's Encrypt al arrancar y lo renueva solo. No hace falta comprar
+dominio.
+
+```bash
+git clone <url-del-repo> koda && cd koda
+nano .env                       # DOMINIO, APP_BASE_URL y las credenciales
+docker compose up -d --build
+```
+
+El runbook completo, con el grupo de seguridad, la IP elástica y qué mirar cuando algo
+falla, está en **[docs/DESPLIEGUE.md](docs/DESPLIEGUE.md)**. El porqué de cada decisión
+—y por qué App Runner y Lambda quedaron descartados— en
+[ADR-019](docs/adr/ADR-019-una-instancia-y-caddy-para-el-https.md).
+
+Para probar los contenedores en local, sin certificado:
+
+```bash
+POSTGRES_PASSWORD=local DOMINIO=localhost docker compose up -d db migraciones app
 ```
 
 ---
@@ -124,6 +149,7 @@ docs/{contexto,adr}/
 | [016](docs/adr/ADR-016-el-acento-se-aleja-del-naranja-de-strava.md) | El acento se aleja del naranja de Strava, y seis animaciones más |
 | [017](docs/adr/ADR-017-la-foto-se-reprocesa-antes-de-salir.md) | La foto se reprocesa antes de salir del servidor |
 | [018](docs/adr/ADR-018-koda-tiene-cara-y-la-app-se-instala.md) | Koda tiene cara, y la aplicación se instala en el móvil |
+| [019](docs/adr/ADR-019-una-instancia-y-caddy-para-el-https.md) | Una instancia EC2 con Caddy, y el HTTPS sin comprar dominio |
 
 Cada ADR incluye sus **consecuencias negativas**. Un ADR sin ellas es publicidad, no ingeniería.
 

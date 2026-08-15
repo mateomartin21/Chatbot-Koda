@@ -1,0 +1,62 @@
+# Lint, tests e imagen, en cada push.
+#
+# La suite corre SIN internet y SIN credenciales: todo lo que toca AWS pasa por un
+# puerto y en los tests se sustituye por un doble de tests/fakes/. Este workflow no
+# tiene un solo secreto configurado, y es a proposito — si algun dia hiciera falta
+# uno para que pasen los tests, seria la senal de que un test se salio del diseno.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  calidad:
+    name: Lint y tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt ruff
+
+      - name: Formato y lint
+        run: |
+          ruff check .
+          ruff format --check .
+
+      - name: Tests
+        # JWT_SECRET es el unico ajuste sin valor por defecto: Settings se niega a
+        # construirse sin el, que es justo lo que se quiere en produccion.
+        env:
+          JWT_SECRET: solo-para-la-suite-de-tests-de-ci
+        run: pytest -q
+
+      # El aislamiento entre runners se ejecuta aparte ademas de dentro de la suite
+      # completa. Si algun dia alguien anade `-m "not security"` a la linea de
+      # arriba para acelerar, este paso lo delata.
+      - name: Aislamiento entre usuarios
+        env:
+          JWT_SECRET: solo-para-la-suite-de-tests-de-ci
+        run: pytest tests/security -q
+
+  imagen:
+    name: La imagen se construye
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # No se publica en ningun registro: en el servidor se construye desde el
+      # repositorio. Esto solo comprueba que el Dockerfile sigue siendo valido, que
+      # es el fallo que si aparecia el dia del despliegue.
+      - name: docker build
+        run: docker build -t koda:${{ github.sha }} .
