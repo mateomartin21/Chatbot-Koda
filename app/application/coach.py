@@ -220,6 +220,16 @@ async def _crear_plan(runner: Runner, repos: ReposDelCoach, argumentos: dict, ho
             f"NO le preguntes la fecha otra vez: ya la sabes."
         )
     except (ValorInvalido, KeyError, TypeError, ValueError) as invalido:
+        # Se registra ADEMAS de devolverse. Devolver la excepcion como texto para el
+        # modelo la borraba del log: el fallo lo veia el modelo, lo contaba en voz
+        # alta hecho un parrafo raro, y en el servidor no quedaba ni rastro. Un error
+        # que solo ve el modelo no se puede depurar.
+        logger.warning(
+            "crear_plan no pudo con %s: %s",
+            json.dumps(argumentos, default=str),
+            invalido,
+            exc_info=True,
+        )
         return f"No se pudo crear el plan: {invalido}"
 
     proxima = await consultar_proxima_sesion(runner.id, repos.planes, hoy=hoy)
