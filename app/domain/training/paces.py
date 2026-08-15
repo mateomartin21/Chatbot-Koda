@@ -65,6 +65,38 @@ class ZonasRitmo:
     estimados: bool = False
 
 
+# Banda de lo humanamente creible para una marca personal, en segundos por kilometro.
+# Por debajo de 2:00/km no hay marca mundial que valga — el record de 1500 m ronda los
+# 2:17/km — y por encima de 20:00/km se anda mas rapido que eso. Fuera de esa banda una
+# marca no es un dato: es una errata.
+_RITMO_MAS_RAPIDO_CREIBLE = 2 * 60
+_RITMO_MAS_LENTO_CREIBLE = 20 * 60
+
+# Riegel se ajusto con carreras de fondo; por debajo de 1 km extrapola cualquier cosa.
+_DISTANCIA_CREIBLE_KM = (1.0, 100.0)
+
+
+def marca_creible(distancia_km: float | None, tiempo_seg: float | None) -> bool:
+    """Si una marca personal puede ser de una persona corriendo.
+
+    Existe por un caso real: el campo del tiempo se rellenaba desde el movil con un
+    teclado numerico sin tecla ":", asi que "30" —por treinta minutos— entraba como
+    treinta segundos. Un 5K en 30 s da un umbral de 6 seg/km, y el ritmo de intervalos,
+    que son 20 seg/km MAS RAPIDO que el umbral, salia negativo. El plan reventaba con
+    "un ritmo tiene que ser positivo", el coach decia "error interno" y el runner se
+    quedaba sin plan sin que nada explicara por que.
+
+    Se comprueba aqui y no en el formulario a proposito: la marca tambien entra
+    hablando, y una regla que solo vive en un formulario no protege al dominio.
+    """
+    if not distancia_km or not tiempo_seg:
+        return False
+    minima, maxima = _DISTANCIA_CREIBLE_KM
+    if not minima <= distancia_km <= maxima:
+        return False
+    return _RITMO_MAS_RAPIDO_CREIBLE <= tiempo_seg / distancia_km <= _RITMO_MAS_LENTO_CREIBLE
+
+
 def predecir_tiempo(t1_seg: float, d1_km: float, d2_km: float) -> float:
     """Predice el tiempo en d2 a partir de una marca en d1 (Riegel)."""
     if t1_seg <= 0 or d1_km <= 0 or d2_km <= 0:
@@ -112,7 +144,11 @@ def zonas_para(
     minutos_continuos: int | None = None,
 ) -> ZonasRitmo:
     """Las cinco zonas de entrenamiento, salgan de una marca real o de una estimacion."""
-    hay_marca = bool(marca_distancia_km and marca_tiempo_seg)
+    # Una marca imposible se ignora en vez de romper el plan. El runner no se queda
+    # sin nada: se cae a la estimacion por nivel, que es el mismo camino de quien no
+    # ha dado ninguna marca, y `estimados` queda en True para que el coach diga en voz
+    # alta que estos ritmos son aproximados (§2.3).
+    hay_marca = marca_creible(marca_distancia_km, marca_tiempo_seg)
     if hay_marca:
         umbral = ritmo_umbral(marca_tiempo_seg, marca_distancia_km)
         tiempo_meta = predecir_tiempo_carrera(marca_tiempo_seg, marca_distancia_km, distancia, nivel)

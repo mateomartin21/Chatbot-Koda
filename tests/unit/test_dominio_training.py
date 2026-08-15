@@ -121,3 +121,50 @@ def test_ningun_principiante_corre_siete_dias():
     plan = _plan(Distancia.K5, semanas=8, runner=_runner(Nivel.PRINCIPIANTE, dias=7))
     for semana in plan.semanas:
         assert sum(1 for s in semana.sesiones if s.tipo != TipoSesion.DESCANSO) <= 4
+
+
+# --- Marcas imposibles -------------------------------------------------------------
+#
+# Caso real de produccion: el campo del tiempo se rellenaba desde el movil con un
+# teclado numerico sin tecla ":", asi que "30" —por treinta minutos— se guardaba como
+# treinta segundos. Un 5K en 30 s da un umbral de 6 seg/km, y el ritmo de intervalos,
+# 20 seg/km mas rapido que el umbral, salia NEGATIVO: el plan reventaba y el runner
+# solo veia a Koda repitiendo "error interno".
+
+
+@pytest.mark.parametrize(
+    ("distancia_km", "tiempo_seg", "por_que"),
+    [
+        (5, 30, "el 5K en medio minuto que rompio produccion"),
+        (10, 60, "diez kilometros en un minuto"),
+        (21.1, 5, "una marca de cinco segundos"),
+        (5, 25 * 3600, "veinticinco horas: mas lento que andar"),
+        (0.1, 30, "cien metros: Riegel no extrapola desde ahi"),
+    ],
+)
+def test_una_marca_imposible_no_deja_sin_plan_a_nadie(distancia_km: float, tiempo_seg: float, por_que: str):
+    """Una errata en la marca se ignora; no tumba la generacion del plan."""
+    runner = Runner(
+        id=uuid4(),
+        email="corredor@example.com",
+        creado_en=datetime(2026, 1, 1),
+        nivel=Nivel.PRINCIPIANTE.value,
+        dias_disponibles=4,
+        marca_distancia_km=distancia_km,
+        marca_tiempo_seg=tiempo_seg,
+    )
+    plan = estrategia_para(Distancia.K21).generar(runner, _objetivo(Distancia.K21, 20), hoy=HOY)
+
+    assert plan.semanas, por_que
+    # Y se cae a la estimacion por nivel, que el coach tiene que decir en voz alta.
+    assert plan.zonas.estimados is True
+    assert all(
+        ritmo.seg_por_km > 0
+        for ritmo in (plan.zonas.facil, plan.zonas.larga, plan.zonas.tempo, plan.zonas.intervalos)
+    )
+
+
+def test_una_marca_normal_sigue_mandando_sobre_la_estimacion():
+    """El arreglo no puede volverse tan estricto que tire marcas de verdad."""
+    plan = estrategia_para(Distancia.K21).generar(_runner(), _objetivo(Distancia.K21, 20), hoy=HOY)
+    assert plan.zonas.estimados is False

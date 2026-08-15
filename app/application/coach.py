@@ -38,7 +38,7 @@ from app.domain.ports.llm_port import (
     LLMPort,
 )
 from app.domain.training.modelos import PlanNoViable, ValorInvalido
-from app.domain.training.paces import Ritmo
+from app.domain.training.paces import Ritmo, marca_creible
 
 logger = logging.getLogger(__name__)
 
@@ -309,9 +309,17 @@ async def _guardar_datos(runner: Runner, repos: ReposDelCoach, argumentos: dict)
     datos = DatosPerfil(**{k: v for k, v in argumentos.items() if k in permitidos and v is not None})
     actualizado = await repos.runners.actualizar_perfil(runner.id, datos)
     respuesta = "Guardado. " + perfil_hablado(actualizado)
-    if actualizado.marca_distancia_km and actualizado.marca_tiempo_seg:
+    if marca_creible(actualizado.marca_distancia_km, actualizado.marca_tiempo_seg):
         umbral = Ritmo(actualizado.marca_tiempo_seg / actualizado.marca_distancia_km)
         respuesta += f" Su marca sale a {umbral}."
+    elif actualizado.marca_distancia_km and actualizado.marca_tiempo_seg:
+        # Se le dice al coach para que lo pregunte, en vez de callarse y construir el
+        # plan sobre una estimacion sin avisar. Casi siempre son las unidades: el
+        # tiempo viene en minutos cuando la herramienta lo pide en segundos.
+        respuesta += (
+            " OJO: esa marca no cuadra — sale un ritmo imposible. Comprueba con el runner"
+            " el tiempo y la distancia antes de crear ningun plan, y no la des por buena."
+        )
     return respuesta
 
 
