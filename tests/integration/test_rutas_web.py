@@ -24,7 +24,7 @@ def test_la_raiz_sirve_la_portada_publica() -> None:
     respuesta = cliente.get("/")
 
     assert respuesta.status_code == 200
-    assert "El entrenador que sabe" in respuesta.text
+    assert "Un entrenador de verdad" in respuesta.text
     # La portada no arranca la aplicacion: si cargara app.js, un visitante sin
     # sesion dispararia peticiones a /api/ solo por mirar la pagina.
     assert "/app.js" not in respuesta.text

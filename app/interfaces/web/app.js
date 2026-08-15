@@ -1134,6 +1134,145 @@ function nodoSemana(semana, abierta) {
   return detalle;
 }
 
+// =============================================================================
+// Calendario
+// =============================================================================
+
+const MESES = [
+  "enero", "febrero", "marzo", "abril", "mayo", "junio",
+  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+];
+const INICIALES = ["L", "M", "X", "J", "V", "S", "D"];
+
+function claveDelDia(fecha) {
+  const mes = String(fecha.getMonth() + 1).padStart(2, "0");
+  const dia = String(fecha.getDate()).padStart(2, "0");
+  return `${fecha.getFullYear()}-${mes}-${dia}`;
+}
+
+/* Un mes completo, no una lista de sesiones. Una lista dice "el martes 8 km"; una
+   rejilla deja ver de un vistazo cuántos días seguidos hay descanso, si el largo
+   siempre cae en domingo y cuánto falta para la carrera. Eso es lo que un runner
+   mira cuando planea su semana. */
+function nodoCalendario(plan) {
+  const porFecha = new Map();
+  for (const semana of plan.semanas) {
+    for (const sesion of semana.sesiones) porFecha.set(sesion.fecha, sesion);
+  }
+
+  const caja = crear("section", "calendario");
+  const cabecera = crear("div", "calendario-cabecera");
+  const anterior = crear("button", "boton-icono");
+  anterior.type = "button";
+  anterior.setAttribute("aria-label", "Mes anterior");
+  anterior.appendChild(icono("caret-derecha", "hacia-atras"));
+  const titulo = crear("h4", "mes-actual");
+  const siguiente = crear("button", "boton-icono");
+  siguiente.type = "button";
+  siguiente.setAttribute("aria-label", "Mes siguiente");
+  siguiente.appendChild(icono("caret-derecha"));
+  cabecera.append(anterior, titulo, siguiente);
+
+  const cabeceraDias = crear("div", "calendario-dias");
+  INICIALES.forEach((inicial) => cabeceraDias.appendChild(crear("span", null, inicial)));
+
+  const rejilla = crear("div", "calendario-rejilla");
+  const detalle = crear("div", "calendario-detalle");
+  caja.append(cabecera, cabeceraDias, rejilla, detalle);
+
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  const primeraFecha = comoFecha(plan.fecha_inicio);
+  const carrera = comoFecha(plan.fecha_carrera);
+  // Se abre en el mes de hoy si el plan lo cubre; si no, en el mes en que arranca.
+  let visible = hoy >= primeraFecha && hoy <= carrera ? new Date(hoy) : new Date(primeraFecha);
+  visible.setDate(1);
+
+  function mostrarDetalle(clave) {
+    detalle.replaceChildren();
+    const sesion = porFecha.get(clave);
+    if (!sesion) {
+      detalle.appendChild(crear("p", "letra-chica", "Ese día no hay nada en el plan."));
+      return;
+    }
+    detalle.appendChild(
+      crear("p", "cuando", `${DIAS[sesion.dia_semana]} ${fechaCorta(sesion.fecha)}`),
+    );
+    if (sesion.tipo === "descanso") {
+      detalle.appendChild(crear("p", null, "Descanso. Cuenta tanto como correr."));
+      return;
+    }
+    const texto = crear("p");
+    conMedidas(texto, sesion.descripcion);
+    detalle.appendChild(texto);
+    if (sesion.ritmo_objetivo) {
+      detalle.appendChild(crear("p", "nota", `A ritmo de ${sesion.ritmo_objetivo}`));
+    }
+  }
+
+  function pintarMes() {
+    titulo.textContent = `${MESES[visible.getMonth()]} ${visible.getFullYear()}`;
+    rejilla.replaceChildren();
+
+    // La semana empieza en lunes, como el plan. getDay() cuenta desde el domingo.
+    const primero = new Date(visible.getFullYear(), visible.getMonth(), 1);
+    const hueco = (primero.getDay() + 6) % 7;
+    const arranque = new Date(primero);
+    arranque.setDate(1 - hueco);
+
+    for (let i = 0; i < 42; i++) {
+      const dia = new Date(arranque);
+      dia.setDate(arranque.getDate() + i);
+      const clave = claveDelDia(dia);
+      const sesion = porFecha.get(clave);
+
+      const celda = crear("button", "dia");
+      celda.type = "button";
+      celda.appendChild(crear("span", "numero-dia", String(dia.getDate())));
+
+      if (dia.getMonth() !== visible.getMonth()) celda.classList.add("dia-fuera");
+      if (dia.getTime() === hoy.getTime()) celda.classList.add("dia-hoy");
+      if (clave === plan.fecha_carrera) {
+        celda.classList.add("dia-carrera");
+        celda.appendChild(icono("meta", "marca-carrera"));
+      } else if (sesion && sesion.tipo !== "descanso") {
+        celda.classList.add(`dia-${sesion.tipo}`);
+        celda.appendChild(crear("span", sesion.completada ? "punto punto-hecho" : "punto"));
+      }
+
+      const resumen = sesion ? sesion.descripcion : "sin plan";
+      celda.setAttribute("aria-label", `${dia.getDate()} de ${MESES[dia.getMonth()]}: ${resumen}`);
+      celda.addEventListener("click", () => {
+        rejilla.querySelector(".dia-elegido")?.classList.remove("dia-elegido");
+        celda.classList.add("dia-elegido");
+        mostrarDetalle(clave);
+      });
+      rejilla.appendChild(celda);
+    }
+
+    const tope = new Date(carrera.getFullYear(), carrera.getMonth(), 1);
+    const suelo = new Date(primeraFecha.getFullYear(), primeraFecha.getMonth(), 1);
+    anterior.disabled = visible <= suelo;
+    siguiente.disabled = visible >= tope;
+  }
+
+  const moverMes = (paso) => {
+    visible = new Date(visible.getFullYear(), visible.getMonth() + paso, 1);
+    pintarMes();
+    detalle.replaceChildren();
+  };
+  anterior.addEventListener("click", () => moverMes(-1));
+  siguiente.addEventListener("click", () => moverMes(1));
+
+  pintarMes();
+  if (plan.proxima_sesion) {
+    rejilla
+      .querySelector(`[aria-label^="${comoFecha(plan.proxima_sesion.fecha).getDate()} de"]`)
+      ?.click();
+  }
+  return caja;
+}
+
 function pintarPlan(plan) {
   contenidoPlan.replaceChildren();
 
@@ -1151,6 +1290,39 @@ function pintarPlan(plan) {
   contenidoPlan.appendChild(nodoPista(plan));
 
   if (plan.proxima_sesion) contenidoPlan.appendChild(nodoProxima(plan.proxima_sesion));
+
+  // Dos formas de mirar el mismo plan, no dos sitios distintos donde buscarlo: el
+  // calendario responde "¿qué hago el jueves?" y las semanas "¿cuánto voy a correr
+  // este mes?". Partirlas en dos paneles obligaría a recordar en cuál está cada cosa.
+  const semanaDeLaProxima = plan.proxima_sesion
+    ? plan.semanas.find((s) => s.sesiones.some((x) => x.fecha === plan.proxima_sesion.fecha))
+    : null;
+  const semanas = crear("div", "semanas");
+  plan.semanas.forEach((semana) =>
+    semanas.appendChild(nodoSemana(semana, semana === semanaDeLaProxima)),
+  );
+  semanas.querySelectorAll(".semana").forEach(comoAcordeon);
+
+  const calendario = nodoCalendario(plan);
+  const selector = crear("div", "selector-vista");
+  const vistas = [
+    ["Calendario", calendario],
+    ["Semanas", semanas],
+  ];
+  vistas.forEach(([nombre, nodo], indice) => {
+    const boton = crear("button", "opcion-vista", nombre);
+    boton.type = "button";
+    boton.setAttribute("aria-pressed", String(indice === 0));
+    nodo.hidden = indice !== 0;
+    boton.addEventListener("click", () => {
+      vistas.forEach(([, otro], i) => {
+        otro.hidden = i !== indice;
+        selector.children[i].setAttribute("aria-pressed", String(i === indice));
+      });
+    });
+    selector.appendChild(boton);
+  });
+  contenidoPlan.append(selector, calendario, semanas);
 
   // El plan se cuenta hacia atras desde la carrera, asi que su arranque suele caer
   // unos dias por delante. Decirlo evita que parezca un error de fechas.
@@ -1193,16 +1365,6 @@ function pintarPlan(plan) {
     nota.appendChild(crear("span", null, texto));
     contenidoPlan.appendChild(nota);
   });
-
-  const semanaDeLaProxima = plan.proxima_sesion
-    ? plan.semanas.find((s) => s.sesiones.some((x) => x.fecha === plan.proxima_sesion.fecha))
-    : null;
-  const semanas = crear("div", "semanas");
-  plan.semanas.forEach((semana) =>
-    semanas.appendChild(nodoSemana(semana, semana === semanaDeLaProxima)),
-  );
-  semanas.querySelectorAll(".semana").forEach(comoAcordeon);
-  contenidoPlan.appendChild(semanas);
 
   escalonarEntrada(contenidoPlan);
 }

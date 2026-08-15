@@ -1675,6 +1675,191 @@ label {
 }
 
 /* =============================================================================
+   Calendario
+   Un mes entero y no una lista: una lista dice "el martes 8 km"; la rejilla deja
+   ver cuantos dias seguidos hay descanso, si el largo siempre cae en domingo y
+   cuanto falta para la carrera. Eso es lo que se mira al planear la semana.
+   ============================================================================= */
+
+.selector-vista {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--r-sm);
+  background: var(--elevado);
+  border: 1px solid var(--linea-tenue);
+}
+
+.opcion-vista {
+  flex: 1;
+  min-height: 34px;
+  border-radius: var(--r-xs);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--bruma);
+  transition:
+    background-color 180ms var(--ease-out),
+    color 180ms var(--ease-out);
+}
+
+.opcion-vista[aria-pressed="true"] {
+  background: var(--nocturno);
+  color: var(--tiza);
+  box-shadow: var(--sombra-1);
+}
+
+.calendario-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e-2);
+  margin-bottom: var(--e-2);
+}
+
+.mes-actual {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-stretch: 110%;
+  text-transform: capitalize;
+}
+
+.hacia-atras {
+  transform: rotate(180deg);
+}
+
+.calendario-dias,
+.calendario-rejilla {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+
+.calendario-dias {
+  margin-bottom: 3px;
+}
+
+.calendario-dias span {
+  text-align: center;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--bruma-honda);
+}
+
+.dia {
+  position: relative;
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border-radius: var(--r-xs);
+  font-family: var(--dato);
+  font-size: 0.8125rem;
+  color: var(--bruma);
+  background: var(--elevado);
+  transition:
+    transform 160ms var(--ease-out),
+    background-color 160ms ease;
+}
+
+/* Los dias de relleno del mes anterior y el siguiente siguen ahi porque quitarlos
+   rompe la rejilla, pero no compiten: casi no se ven. */
+.dia-fuera {
+  background: none;
+  color: var(--bruma-honda);
+  opacity: 0.35;
+}
+
+.dia .punto {
+  width: 5px;
+  height: 5px;
+  border-radius: var(--r-full);
+  background: currentColor;
+}
+
+.dia-facil {
+  color: var(--suave);
+}
+.dia-largo {
+  color: var(--largo);
+}
+.dia-series,
+.dia-tempo {
+  color: var(--amanecer);
+}
+.dia-cruzado {
+  color: var(--bruma);
+}
+
+.dia .punto-hecho {
+  width: 7px;
+  height: 7px;
+  box-shadow: 0 0 0 2px var(--nocturno);
+}
+
+.numero-dia {
+  color: var(--tiza);
+  line-height: 1;
+}
+
+.dia-fuera .numero-dia {
+  color: inherit;
+}
+
+/* Hoy va con un anillo y no con relleno: el relleno lo tiene el dia elegido, y si
+   los dos se pintaran igual no se sabria cual es cual. */
+.dia-hoy {
+  box-shadow: inset 0 0 0 1.5px var(--bruma-honda);
+}
+
+.dia-elegido {
+  background: var(--amanecer);
+}
+
+.dia-elegido .numero-dia,
+.dia-elegido .punto {
+  color: #1f1400;
+}
+
+.dia-carrera {
+  background: linear-gradient(160deg, #ffbe55, var(--amanecer-hondo));
+  color: #1f1400;
+}
+
+.dia-carrera .numero-dia {
+  color: #1f1400;
+}
+
+.marca-carrera {
+  width: 12px;
+  height: 12px;
+}
+
+.calendario-detalle {
+  min-height: 4.5rem;
+  margin-top: var(--e-3);
+  padding-top: var(--e-3);
+  border-top: 1px solid var(--linea-tenue);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.875rem;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .dia:not(.dia-fuera):hover {
+    background: var(--linea);
+  }
+
+  .dia-elegido:hover,
+  .dia-carrera:hover {
+    filter: brightness(1.08);
+  }
+}
+
+/* =============================================================================
    Perfil y recordatorios
    ============================================================================= */
 
