@@ -5,263 +5,220 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="color-scheme" content="dark" />
   <meta name="theme-color" content="#090d18" />
-  <meta name="description" content="Koda: entrenador de running conversacional. Le hablas, te arma el plan y se acuerda de lo que le cuentas." />
-  <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta property="og:title" content="Koda — entrenador de running por voz" />
-  <meta property="og:description" content="Le hablas desde el móvil, te genera un plan real para tu carrera y te escribe cada mañana." />
+  <meta name="description" content="Koda es un entrenador de running al que le hablas. Te arma el plan, te calcula los ritmos y sabe decirte que no cuando lo que pides no se puede." />
+  <meta property="og:title" content="Koda — el entrenador de running que sabe decir que no" />
+  <meta property="og:description" content="Le hablas desde el móvil. Te arma un plan real para tu carrera y se acuerda de lo que le cuentas." />
   <meta property="og:type" content="website" />
-  <title>Koda — entrenador de running</title>
+  <title>Koda — entrenador de running por voz</title>
 
-  <!-- La tipografia se precarga: llega antes que la hoja de estilos la pida, y el
-       texto no baila al cambiar de la de sistema a la real. -->
   <link rel="preload" href="/fuentes/archivo-variable-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/landing.css" />
   <link rel="icon" href="/icono.svg" type="image/svg+xml" />
-  <link rel="apple-touch-icon" href="/icono.svg" />
 </head>
-<body>
-  <!-- ===================== Entrar ===================== -->
-  <main id="pantalla-login" class="pantalla-login" hidden>
+<body class="portada">
+  <a class="saltar" href="#que-es">Saltar al contenido</a>
+
+  <header class="barra">
+    <a class="logo" href="/">
+      <span class="marca marca-sm"><svg aria-hidden="true"><use href="/iconos.svg#i-koda" /></svg></span>
+      <span>Koda</span>
+    </a>
+    <nav class="enlaces-barra">
+      <a href="#que-es">Qué es</a>
+      <a href="#como-va">Cómo funciona</a>
+      <a href="#por-dentro">Por dentro</a>
+    </nav>
+    <a class="boton boton-primario boton-compacto" href="/app/">Entrar</a>
+  </header>
+
+  <!-- Hero. Runna centra el suyo; aquí va alineado a la izquierda y en dos columnas
+       porque la app también lo está, y porque centrar todo es lo que hace cualquiera. -->
+  <section class="hero">
     <div class="relieve" aria-hidden="true"></div>
     <div class="fondo-decorativo" aria-hidden="true"></div>
 
-    <div class="tarjeta-login">
-      <span class="marca marca-xl">
-        <svg aria-hidden="true"><use href="/iconos.svg#i-koda" /></svg>
-      </span>
-      <h1>Koda</h1>
-      <p class="subtitulo">Tu entrenador de running. Háblale como a una persona.</p>
-
-      <form id="form-solicitar" novalidate>
-        <div>
-          <label for="email">Correo electrónico</label>
-          <div class="campo">
-            <svg class="icono-campo" aria-hidden="true"><use href="/iconos.svg#i-correo" /></svg>
-            <input type="email" id="email" name="email" required autocomplete="email"
-                   placeholder="tu@correo.com" enterkeyhint="go" />
-          </div>
-        </div>
-        <button type="submit" class="boton boton-primario">
-          <span class="texto-boton">Entrar</span>
-          <span class="cargador" aria-hidden="true"></span>
-        </button>
-      </form>
-
-      <p id="mensaje-login" class="nota" role="status" hidden></p>
+    <div class="hero-texto">
+      <p class="eyebrow">Entrenador de running por voz</p>
+      <h1>
+        El entrenador que sabe<br />
+        decirte <span class="resalte">que no</span>
+      </h1>
+      <p class="entrada">
+        Le hablas como a una persona. Te arma un plan real para tu carrera, te calcula
+        los ritmos y se acuerda de lo que le cuentas. Y si lo que pides no se puede,
+        te lo dice y te propone lo que sí.
+      </p>
+      <div class="acciones-hero">
+        <a class="boton boton-primario" href="/app/">Hablar con Koda</a>
+        <a class="boton boton-secundario" href="#como-va">Ver cómo funciona</a>
+      </div>
       <p class="letra-chica">
-        Sin contraseñas. Te mandamos un enlace de un solo uso que caduca en 15 minutos.
+        Sin contraseñas ni tarjeta. Introduces tu correo y entras con un enlace.
       </p>
     </div>
-  </main>
 
-  <!-- ===================== La app ===================== -->
-  <div id="pantalla-chat" class="app" hidden>
-    <!-- Barra lateral: solo en pantallas anchas. En el móvil sus acciones viven en
-         la cabecera, que es donde llega el pulgar. -->
-    <nav class="rail" aria-label="Secciones">
-      <span class="marca marca-md" aria-hidden="true">
-        <svg><use href="/iconos.svg#i-koda" /></svg>
-      </span>
-      <button type="button" class="boton-rail" data-abre="panel-plan">
-        <svg aria-hidden="true"><use href="/iconos.svg#i-plan" /></svg>
-        <span>Mi plan</span>
-      </button>
-      <button type="button" class="boton-rail" data-abre="panel-perfil">
-        <svg aria-hidden="true"><use href="/iconos.svg#i-perfil" /></svg>
-        <span>Mi perfil</span>
-      </button>
-    </nav>
-
-    <main class="chat">
-      <header class="cabecera-chat">
-        <span class="marca marca-sm" aria-hidden="true">
-          <svg><use href="/iconos.svg#i-koda" /></svg>
-        </span>
-        <div class="identidad">
-          <strong>Koda</strong>
-          <span id="estado-koda" class="estado">Entrenador de running</span>
-        </div>
-        <div class="acciones-cabecera">
-          <button type="button" class="boton-icono solo-movil" data-abre="panel-plan" aria-label="Mi plan">
-            <svg aria-hidden="true"><use href="/iconos.svg#i-plan" /></svg>
-          </button>
-          <button type="button" class="boton-icono solo-movil" data-abre="panel-perfil" aria-label="Mi perfil">
-            <svg aria-hidden="true"><use href="/iconos.svg#i-perfil" /></svg>
-          </button>
-        </div>
-      </header>
-
-      <div id="burbujas" class="burbujas" role="log" aria-live="polite" aria-label="Conversación">
-        <section id="bienvenida" class="bienvenida">
-          <div class="relieve relieve-suave" aria-hidden="true"></div>
-          <span class="marca marca-lg" aria-hidden="true">
-            <svg><use href="/iconos.svg#i-koda" /></svg>
-          </span>
-          <h2>Hola, soy Koda</h2>
-          <p>
-            Dime qué carrera quieres correr y para cuándo. Te armo el plan, te calculo
-            los ritmos y me acuerdo de lo que me cuentes.
-          </p>
-          <div class="sugerencias">
-            <button type="button" class="chip" data-sugerencia="Quiero correr un 10K en noviembre">
-              <svg aria-hidden="true"><use href="/iconos.svg#i-meta" /></svg>
-              Quiero correr un 10K
-            </button>
-            <button type="button" class="chip" data-sugerencia="¿Qué me toca entrenar hoy?">
-              <svg aria-hidden="true"><use href="/iconos.svg#i-rayo" /></svg>
-              Qué me toca hoy
-            </button>
-            <button type="button" class="chip" data-sugerencia="Me molesta la rodilla desde el domingo">
-              <svg aria-hidden="true"><use href="/iconos.svg#i-alerta" /></svg>
-              Me molesta la rodilla
-            </button>
-          </div>
-        </section>
-      </div>
-
-      <form id="form-mensaje" class="compositor">
-        <div class="caja-compositor">
-          <input type="text" id="texto" placeholder="Escribe o toca el micro"
-                 autocomplete="off" enterkeyhint="send" />
-          <button type="button" id="boton-mic" class="boton-mic" aria-label="Grabar mensaje de voz">
-            <svg class="icono-micro" aria-hidden="true"><use href="/iconos.svg#i-micro" /></svg>
-            <svg class="icono-parar" aria-hidden="true"><use href="/iconos.svg#i-parar" /></svg>
-          </button>
-          <button type="submit" id="boton-enviar" class="boton-enviar" aria-label="Enviar mensaje">
-            <svg aria-hidden="true"><use href="/iconos.svg#i-enviar" /></svg>
-          </button>
-        </div>
-
-        <!-- Sustituye a la caja de texto mientras se graba. El nivel de las barras es
-             el volumen real del micrófono, no una animación decorativa: si no se
-             mueven, no te está oyendo — y eso se ve antes de mandar el audio. -->
-        <div id="barra-grabacion" class="barra-grabacion" hidden>
-          <span class="punto-rec" aria-hidden="true"></span>
-          <span class="etiqueta-rec">Te escucho</span>
-          <div id="ondas" class="ondas" aria-hidden="true"></div>
-          <span id="cronometro" class="cronometro">0:00</span>
-          <button type="button" id="boton-parar" class="boton-mic" aria-label="Terminar y enviar">
-            <svg class="icono-parar" aria-hidden="true"><use href="/iconos.svg#i-parar" /></svg>
-          </button>
-        </div>
-      </form>
-    </main>
-
-    <!-- El plan vive dentro de la app porque a partir de 1200px deja de ser un cajón
-         que tapa y pasa a ser una columna fija al lado de la conversación. -->
-    <section id="panel-plan" class="panel" hidden aria-labelledby="titulo-plan">
-      <header class="cabecera-panel">
-        <h2 id="titulo-plan">
-          <svg aria-hidden="true"><use href="/iconos.svg#i-plan" /></svg>
-          Mi plan
-        </h2>
-        <button type="button" class="boton-icono cerrar-panel" aria-label="Cerrar">
-          <svg aria-hidden="true"><use href="/iconos.svg#i-cerrar" /></svg>
-        </button>
-      </header>
-      <div id="contenido-plan" class="contenido-panel" aria-live="polite"></div>
-    </section>
-  </div>
-
-  <div id="velo" class="velo" hidden></div>
-
-  <!-- ===================== Perfil ===================== -->
-  <section id="panel-perfil" class="panel" hidden aria-labelledby="titulo-perfil" role="dialog" aria-modal="true">
-    <header class="cabecera-panel">
-      <h2 id="titulo-perfil">
-        <svg aria-hidden="true"><use href="/iconos.svg#i-perfil" /></svg>
-        Mi perfil
-      </h2>
-      <button type="button" class="boton-icono cerrar-panel" aria-label="Cerrar">
-        <svg aria-hidden="true"><use href="/iconos.svg#i-cerrar" /></svg>
-      </button>
-    </header>
-
-    <div class="contenido-panel">
-      <p class="nota">
-        Cuanto más sepa de ti, mejor te ajusto los ritmos. También puedes contármelo hablando.
-      </p>
-      <p id="intro-perfil" class="nota-destacada" hidden>
-        <svg aria-hidden="true"><use href="/iconos.svg#i-info" /></svg>
-        <span>
-          Antes de empezar, cuéntame de ti. Sin una marca reciente tus ritmos son solo una
-          estimación, y de ahí sale todo tu plan.
-        </span>
-      </p>
-
-      <form id="form-perfil">
-        <div>
-          <label for="perfil-nombre">Cómo te llamo</label>
-          <input type="text" id="perfil-nombre" autocomplete="given-name" placeholder="Mateo" />
-        </div>
-
-        <div class="fila-campos">
-          <div>
-            <label for="perfil-edad">Edad</label>
-            <input type="number" id="perfil-edad" min="10" max="100" inputmode="numeric" placeholder="30" />
-          </div>
-          <div>
-            <label for="perfil-dias">Días por semana</label>
-            <input type="number" id="perfil-dias" min="2" max="7" inputmode="numeric" placeholder="4" />
-          </div>
-        </div>
-
-        <div>
-          <label for="perfil-nivel">Nivel</label>
-          <div class="campo campo-select">
-            <select id="perfil-nivel">
-              <option value="">Prefiero no decirlo</option>
-              <option value="principiante">Principiante</option>
-              <option value="intermedio">Intermedio</option>
-              <option value="avanzado">Avanzado</option>
-            </select>
-            <svg class="icono-select" aria-hidden="true"><use href="/iconos.svg#i-caret" /></svg>
-          </div>
-        </div>
-
-        <fieldset class="marca-reciente">
-          <legend>Tu mejor marca reciente</legend>
-          <p class="letra-chica">De aquí salen todos tus ritmos. Sin ella van estimados.</p>
-          <div class="fila-campos">
-            <div>
-              <label for="perfil-marca-km">Distancia (km)</label>
-              <input type="number" id="perfil-marca-km" min="1" max="100" step="0.1"
-                     inputmode="decimal" placeholder="10" />
-            </div>
-            <div>
-              <label for="perfil-marca-tiempo">Tiempo</label>
-              <input type="text" id="perfil-marca-tiempo" placeholder="52:30" inputmode="numeric" />
-            </div>
-          </div>
-        </fieldset>
-
-        <div class="acciones-form">
-          <button type="submit" class="boton boton-primario">
-            <span class="texto-boton">Guardar</span>
-            <span class="cargador" aria-hidden="true"></span>
-          </button>
-          <button type="button" id="saltar-perfil" class="boton boton-secundario" hidden>
-            Lo hago después
-          </button>
-        </div>
-        <p id="mensaje-perfil" class="nota" role="status" hidden></p>
-      </form>
-
-      <section id="seccion-avisos" class="bloque-avisos" hidden>
-        <h3>
-          <svg aria-hidden="true"><use href="/iconos.svg#i-campana" /></svg>
-          Recordatorios por correo
-        </h3>
-        <p class="letra-chica">
-          Llegan a la hora que marques, en tu horario. Si un día no toca entrenar, no te escribo.
-        </p>
-        <div id="lista-avisos"></div>
-        <p id="mensaje-avisos" class="nota" role="status" hidden></p>
-      </section>
+    <div class="hero-pantallas" aria-hidden="true">
+      <img class="pantalla pantalla-atras" src="/capturas/plan.jpg" width="760" height="1600" alt="" loading="lazy" />
+      <img class="pantalla pantalla-frente" src="/capturas/conversacion.jpg" width="760" height="1600" alt="" />
     </div>
   </section>
 
-  <script src="/app.js"></script>
+  <!-- La tesis. No se cuenta: se enseña la conversación en la que Koda se niega. -->
+  <section class="seccion" id="que-es">
+    <div class="ancho">
+      <p class="eyebrow">La diferencia</p>
+      <h2>Un plan que no se inventa nadie</h2>
+      <p class="entrada limitada">
+        Las reglas de entrenamiento — progresión del 10 %, polarización 80/20, semanas
+        de descarga, tapering, ritmos por Riegel — están escritas como código, no como
+        instrucciones a un modelo de lenguaje. El modelo conversa; los números los
+        calcula el dominio. Por eso Koda puede negarse.
+      </p>
+
+      <figure class="charla">
+        <img src="/capturas/conversacion.jpg" width="760" height="1600"
+             alt="Conversación en la que un runner pide un maratón en seis semanas y Koda le explica por qué no es viable y le propone un 21K en doce semanas." />
+        <figcaption>Captura real de la aplicación, no un montaje.</figcaption>
+      </figure>
+
+      <ul class="rejilla-hechos">
+        <li>
+          <svg aria-hidden="true"><use href="/iconos.svg#i-meta" /></svg>
+          <h3>5K, 10K, 21K y maratón</h3>
+          <p>Con ritmos calculados a partir de tu mejor marca, semanas de descarga y taper.</p>
+        </li>
+        <li>
+          <svg aria-hidden="true"><use href="/iconos.svg#i-pulso" /></svg>
+          <h3>Se acuerda</h3>
+          <p>Si le cuentas que te molesta la rodilla, lo tiene en cuenta semanas después.</p>
+        </li>
+        <li>
+          <svg aria-hidden="true"><use href="/iconos.svg#i-campana" /></svg>
+          <h3>Te escribe</h3>
+          <p>La sesión del día por correo, a tu hora. Si hoy no toca entrenar, no te escribe.</p>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Cómo funciona. Tres pasos con capturas de verdad, no ilustraciones. -->
+  <section class="seccion seccion-alterna" id="como-va">
+    <div class="ancho">
+      <p class="eyebrow">Cómo funciona</p>
+      <h2>Hablar, correr, ajustar</h2>
+
+      <ol class="pasos">
+        <li>
+          <div class="paso-texto">
+            <span class="numero-paso">01</span>
+            <h3>Le cuentas qué quieres correr</h3>
+            <p>
+              Con la voz, desde el móvil, mientras haces otra cosa. Koda te oye en
+              tiempo real: las barras se mueven con tu voz, así que sabes que te está
+              escuchando antes de soltar el botón.
+            </p>
+          </div>
+          <img class="pantalla" src="/capturas/voz.jpg" width="760" height="1600"
+               alt="La aplicación grabando un mensaje de voz, con la forma de onda del micrófono y el cronómetro." loading="lazy" />
+        </li>
+        <li>
+          <div class="paso-texto">
+            <span class="numero-paso">02</span>
+            <h3>Te arma el plan y te lo explica</h3>
+            <p>
+              El plan se cuenta hacia atrás desde el día de la carrera, para que la
+              bajada de carga caiga justo antes. Ves las semanas, el volumen de cada
+              una y tus ritmos por zona.
+            </p>
+          </div>
+          <img class="pantalla" src="/capturas/plan.jpg" width="760" height="1600"
+               alt="El plan de entrenamiento: cuenta atrás hasta la carrera, volumen por semana y ritmos por zona." loading="lazy" />
+        </li>
+        <li>
+          <div class="paso-texto">
+            <span class="numero-paso">03</span>
+            <h3>Te acompaña hasta la carrera</h3>
+            <p>
+              Cada mañana te llega la sesión del día. Por la noche te pregunta si
+              saliste, y el domingo te resume la semana. Le puedes contestar hablando.
+            </p>
+          </div>
+          <img class="pantalla" src="/capturas/conversacion.jpg" width="760" height="1600"
+               alt="Conversación con Koda en la aplicación." loading="lazy" />
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- Koda es una prueba técnica. Quien la evalúa también es visitante de esta página,
+       así que lo de dentro se cuenta aquí en vez de esconderlo en el README. -->
+  <section class="seccion" id="por-dentro">
+    <div class="ancho">
+      <p class="eyebrow">Por dentro</p>
+      <h2>Cómo está construido</h2>
+      <p class="entrada limitada">
+        Koda es una prueba técnica. Estas son las decisiones que la sostienen, cada una
+        con su documento y sus consecuencias negativas escritas.
+      </p>
+
+      <div class="rejilla-tecnica">
+        <article>
+          <h3>El LLM no calcula nada</h3>
+          <p>
+            Las reglas R1–R8 viven en <code>app/domain/training/</code> como código
+            determinista y testeado. El modelo interpreta y explica.
+          </p>
+        </article>
+        <article>
+          <h3>Puertos y adaptadores</h3>
+          <p>
+            El dominio no importa <code>boto3</code> ni <code>sqlalchemy</code>, y hay
+            un test que lo comprueba. Cambiar de proveedor son cuatro líneas.
+          </p>
+        </article>
+        <article>
+          <h3>Voz en tiempo real, con red debajo</h3>
+          <p>
+            Amazon Nova Sonic para hablar. Si falla, cae sola a una cascada de
+            transcripción, modelo y síntesis, con varios proveedores en cadena.
+          </p>
+        </article>
+        <article>
+          <h3>Aislamiento en cinco capas</h3>
+          <p>
+            El identificador del runner sale siempre del token de sesión, nunca del
+            cliente. Hay una suite de tests dedicada solo a eso.
+          </p>
+        </article>
+      </div>
+
+      <p class="nota">
+        El código, la documentación y los 16 registros de decisión están en el
+        repositorio.
+      </p>
+    </div>
+  </section>
+
+  <section class="cierre">
+    <div class="relieve" aria-hidden="true"></div>
+    <div class="ancho">
+      <h2>Dile qué carrera quieres correr</h2>
+      <p class="entrada">Tarda menos en armarte el plan que tú en atarte las zapatillas.</p>
+      <a class="boton boton-primario" href="/app/">Hablar con Koda</a>
+      <p class="letra-chica">Sin contraseñas. Un enlace a tu correo y ya estás dentro.</p>
+    </div>
+  </section>
+
+  <footer class="pie">
+    <div class="ancho">
+      <span class="marca marca-sm"><svg aria-hidden="true"><use href="/iconos.svg#i-koda" /></svg></span>
+      <p class="letra-chica">
+        Koda ofrece orientación de entrenamiento, <strong>no consejo médico</strong>.
+        Ante dolor persistente o una lesión, consulta a un profesional de la salud.
+      </p>
+      <p class="letra-chica">Prueba técnica · agosto de 2026</p>
+    </div>
+  </footer>
 </body>
 </html>

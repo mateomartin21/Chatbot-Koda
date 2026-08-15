@@ -67,7 +67,9 @@ async def canjear(
     await alta_por_defecto(runner.id, repos.recordatorios)
     await programar_para(runner, repos.recordatorios, scheduler)
 
-    response = RedirectResponse(url="/", status_code=307)
+    # A /app/ y no a /: la raiz es la pagina publica. El enlace del correo tiene que
+    # dejarte dentro de la aplicacion, no en la portada.
+    response = RedirectResponse(url="/app/", status_code=307)
     response.set_cookie(
         key=COOKIE_NAME,
         value=crear_jwt(runner.id, settings),

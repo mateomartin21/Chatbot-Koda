@@ -72,7 +72,8 @@ alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
-Abre `http://localhost:8000`. Introduce tu correo y sigue el enlace que recibas.
+Abre `http://localhost:8000` — esa es la página pública. La aplicación está en
+`http://localhost:8000/app/`: introduce tu correo y sigue el enlace que recibas.
 
 > ⚠️ **En móvil hace falta HTTPS**: `getUserMedia` no funciona sobre HTTP y no hay excepción de `localhost` desde otro dispositivo.
 
@@ -93,6 +94,7 @@ app/
 ├── application/       casos de uso
 ├── infrastructure/    adaptadores de AWS, BD y almacenamiento
 ├── interfaces/        API HTTP y web
+│   └── web/           portada pública en /, aplicación en /app/
 └── prompts/           prompts versionados
 tests/{unit,integration,security,fakes}/
 docs/{contexto,adr}/

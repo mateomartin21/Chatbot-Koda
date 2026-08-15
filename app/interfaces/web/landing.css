@@ -1,0 +1,537 @@
+/* =============================================================================
+   Koda — página pública
+
+   Hereda los tokens de styles.css: la portada y la aplicación tienen que ser el
+   mismo producto, no dos diseños que se parecen.
+
+   Qué se toma de la landing de Runna, que es la referencia pedida, y qué no:
+
+   SE TOMA
+   - Titular enorme con tracking muy negativo y UNA palabra en el acento. Es su
+     recurso más fuerte y el más barato de ejecutar bien.
+   - La línea de tranquilidad debajo del botón ("First week free. Cancel anytime.").
+     Quita el miedo justo donde aparece.
+   - Capturas del producto como prueba, no ilustraciones de lo que hace.
+   - Curvas de fondo en el hero oscuro: Runna tiene unas líneas de pista muy tenues
+     en el suyo. Aquí ya existían por otro camino.
+
+   NO SE TOMA
+   - Centrarlo todo. Runna centra el hero; centrar es lo que hace cualquiera, y la
+     aplicación de Koda está alineada a la izquierda. Se mantiene la coherencia.
+   - Alternar secciones blancas y negras. Koda es oscuro y se compromete: se alterna
+     entre dos tonos del mismo azul.
+   - Valoraciones, estrellas y testimonios. No los hay, e inventarlos sería mentir.
+   - "Running made simple". El gancho honesto de Koda es el contrario: sabe decir
+     que no.
+   ============================================================================= */
+
+.portada {
+  overflow-x: hidden;
+}
+
+.saltar {
+  position: absolute;
+  left: -9999px;
+  top: var(--e-2);
+  z-index: 100;
+  padding: var(--e-2) var(--e-3);
+  border-radius: var(--r-sm);
+  background: var(--elevado);
+  color: var(--tiza);
+}
+
+.saltar:focus {
+  left: var(--e-4);
+}
+
+.ancho {
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding-inline: var(--e-4);
+}
+
+/* --- Barra superior --------------------------------------------------------- */
+
+.barra {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: var(--e-4);
+  padding: var(--e-3) var(--e-4);
+  padding-top: max(var(--e-3), env(safe-area-inset-top));
+  background: rgba(9, 13, 24, 0.78);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--linea-tenue);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: var(--e-2);
+  margin-right: auto;
+  font-stretch: 112%;
+  font-weight: 750;
+  font-size: 1.0625rem;
+  letter-spacing: -0.02em;
+  color: var(--tiza);
+  text-decoration: none;
+}
+
+.enlaces-barra {
+  display: none;
+  gap: var(--e-5);
+}
+
+.enlaces-barra a {
+  color: var(--bruma);
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: color 160ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .enlaces-barra a:hover {
+    color: var(--tiza);
+  }
+}
+
+.boton-compacto {
+  min-height: 38px;
+  padding: 0 var(--e-4);
+  font-size: 0.875rem;
+  text-decoration: none;
+}
+
+/* --- Hero ------------------------------------------------------------------- */
+
+.hero {
+  position: relative;
+  display: grid;
+  gap: var(--e-6);
+  padding: var(--e-7) 0 0;
+  overflow: hidden;
+}
+
+.hero > *:not(.relieve):not(.fondo-decorativo) {
+  position: relative;
+}
+
+.hero-texto {
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding-inline: var(--e-4);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--e-4);
+}
+
+/* El titular es el único sitio donde la tipografía se estira del todo: ancho 122,
+   peso 800 y tracking muy negativo. Es el recurso de Runna, con nuestra letra. */
+.hero h1 {
+  font-size: clamp(2.5rem, 7vw, 4.5rem);
+  font-stretch: 122%;
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 0.98;
+  margin: 0;
+}
+
+.resalte {
+  color: var(--amanecer);
+}
+
+.entrada {
+  font-size: clamp(1rem, 2.4vw, 1.1875rem);
+  line-height: 1.55;
+  color: var(--bruma);
+  max-width: 46ch;
+}
+
+.limitada {
+  max-width: 58ch;
+}
+
+.acciones-hero {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e-3);
+  margin-top: var(--e-2);
+}
+
+.acciones-hero .boton {
+  text-decoration: none;
+}
+
+/* Las dos capturas se solapan: una plana al lado de la otra sería un catálogo. */
+.hero-pantallas {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: var(--e-4);
+  padding: 0 var(--e-4);
+  height: 340px;
+}
+
+.pantalla {
+  display: block;
+  width: auto;
+  height: 100%;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--linea);
+  box-shadow: var(--sombra-3);
+  object-fit: cover;
+  object-position: top center;
+}
+
+.hero-pantallas .pantalla {
+  position: absolute;
+  bottom: -14px;
+}
+
+.pantalla-frente {
+  height: 100%;
+  z-index: 2;
+  transform: translateX(-14%);
+}
+
+.pantalla-atras {
+  height: 90%;
+  z-index: 1;
+  transform: translateX(38%) rotate(4deg);
+  opacity: 0.85;
+}
+
+/* --- Secciones -------------------------------------------------------------- */
+
+.seccion {
+  padding: var(--e-7) 0;
+  border-top: 1px solid var(--linea-tenue);
+}
+
+.seccion-alterna {
+  background: var(--nocturno);
+}
+
+.seccion h2,
+.cierre h2 {
+  font-size: clamp(1.75rem, 4.5vw, 2.75rem);
+  font-stretch: 116%;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  margin: var(--e-2) 0 var(--e-3);
+}
+
+.charla {
+  margin: var(--e-6) 0 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--e-2);
+}
+
+.charla img {
+  width: 100%;
+  max-width: 380px;
+  height: auto;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--linea);
+  box-shadow: var(--sombra-3);
+}
+
+.charla figcaption {
+  font-size: 0.75rem;
+  color: var(--bruma-honda);
+}
+
+.rejilla-hechos {
+  list-style: none;
+  padding: 0;
+  margin: var(--e-6) 0 0;
+  display: grid;
+  gap: var(--e-4);
+}
+
+.rejilla-hechos li {
+  padding: var(--e-4);
+  border-radius: var(--r-md);
+  background: var(--nocturno);
+  border: 1px solid var(--linea-tenue);
+}
+
+.seccion-alterna .rejilla-hechos li {
+  background: var(--elevado);
+}
+
+.rejilla-hechos svg {
+  width: 22px;
+  height: 22px;
+  color: var(--amanecer);
+  margin-bottom: var(--e-2);
+}
+
+.rejilla-hechos h3,
+.rejilla-tecnica h3 {
+  font-size: 1rem;
+  font-stretch: 108%;
+  margin-bottom: var(--e-1);
+}
+
+.rejilla-hechos p,
+.rejilla-tecnica p {
+  font-size: 0.875rem;
+  color: var(--bruma);
+}
+
+/* --- Pasos ------------------------------------------------------------------ */
+
+.pasos {
+  list-style: none;
+  padding: 0;
+  margin: var(--e-6) 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-7);
+  counter-reset: paso;
+}
+
+.pasos > li {
+  display: grid;
+  gap: var(--e-4);
+  align-items: center;
+}
+
+/* La numeración se queda porque aquí el contenido SÍ es una secuencia: primero
+   hablas, luego hay plan, luego te acompaña. Si no lo fuera, sobraría. */
+.numero-paso {
+  display: inline-block;
+  font-family: var(--dato);
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  color: var(--amanecer);
+  margin-bottom: var(--e-2);
+}
+
+.paso-texto h3 {
+  font-size: clamp(1.25rem, 3vw, 1.625rem);
+  font-stretch: 112%;
+  font-weight: 750;
+  letter-spacing: -0.025em;
+  margin-bottom: var(--e-2);
+}
+
+.paso-texto p {
+  color: var(--bruma);
+  max-width: 44ch;
+}
+
+.pasos .pantalla {
+  width: 100%;
+  max-width: 290px;
+  height: auto;
+  max-height: 480px;
+  justify-self: center;
+}
+
+/* --- Por dentro ------------------------------------------------------------- */
+
+.rejilla-tecnica {
+  display: grid;
+  gap: var(--e-3);
+  margin: var(--e-5) 0 var(--e-4);
+}
+
+.rejilla-tecnica article {
+  padding: var(--e-4);
+  border-radius: var(--r-md);
+  border-left: 2px solid var(--linea);
+  background: var(--nocturno);
+}
+
+.rejilla-tecnica code {
+  font-family: var(--dato);
+  font-size: 0.86em;
+  color: var(--alba);
+}
+
+/* --- Cierre y pie ----------------------------------------------------------- */
+
+.cierre {
+  position: relative;
+  overflow: hidden;
+  padding: var(--e-7) 0;
+  border-top: 1px solid var(--linea-tenue);
+  text-align: center;
+}
+
+.cierre .ancho {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--e-3);
+}
+
+.cierre .entrada {
+  max-width: 40ch;
+}
+
+.cierre .boton {
+  text-decoration: none;
+  margin-top: var(--e-2);
+}
+
+.pie {
+  padding: var(--e-5) 0 var(--e-6);
+  padding-bottom: max(var(--e-6), env(safe-area-inset-bottom));
+  border-top: 1px solid var(--linea-tenue);
+  background: var(--nocturno);
+}
+
+.pie .ancho {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-3);
+  align-items: flex-start;
+}
+
+.pie strong {
+  color: var(--bruma);
+}
+
+/* =============================================================================
+   Pantallas anchas
+   ============================================================================= */
+
+@media (min-width: 720px) {
+  .enlaces-barra {
+    display: flex;
+  }
+
+  .rejilla-hechos {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .rejilla-tecnica {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .hero-pantallas {
+    height: 420px;
+  }
+
+  .pasos > li {
+    grid-template-columns: 1fr minmax(0, 300px);
+    gap: var(--e-6);
+  }
+
+  /* La imagen cambia de lado en los pasos pares: si todas caen a la derecha, la
+     página se lee como una tabla y no como un recorrido. */
+  .pasos > li:nth-child(even) .paso-texto {
+    order: 2;
+  }
+}
+
+@media (min-width: 1000px) {
+  .hero {
+    grid-template-columns: 1.12fr 0.88fr;
+    align-items: center;
+    gap: 0;
+    padding: var(--e-7) 0;
+    min-height: 78dvh;
+  }
+
+  .hero-texto {
+    padding-left: max(var(--e-4), calc((100vw - 1120px) / 2));
+    padding-right: var(--e-5);
+    margin: 0;
+    max-width: none;
+  }
+
+  .hero-pantallas {
+    height: min(74dvh, 620px);
+    padding: 0;
+  }
+
+  .hero-pantallas .pantalla {
+    bottom: auto;
+  }
+
+  .pantalla-frente {
+    transform: translateX(-22%);
+  }
+
+  .pantalla-atras {
+    transform: translateX(20%) rotate(5deg);
+  }
+}
+
+/* =============================================================================
+   Movimiento
+   La portada se ve una vez, así que aquí sí cabe una aparición al desplazarse —
+   al contrario que dentro de la aplicación, donde las mismas semanas se recorren
+   decenas de veces. Se hace con animation-timeline, que corre fuera del hilo
+   principal; donde no exista, el contenido simplemente ya está visible.
+   ============================================================================= */
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .seccion .ancho > *,
+    .pasos > li,
+    .cierre .ancho > * {
+      animation: asomar linear both;
+      animation-timeline: view();
+      animation-range: entry 15% entry 85%;
+    }
+  }
+}
+
+@keyframes asomar {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+}
+
+/* El hero no espera al scroll: ya está a la vista cuando carga. */
+.hero-texto > * {
+  animation: asomar 500ms var(--ease-out) both;
+}
+
+.hero-texto > *:nth-child(2) {
+  animation-delay: 70ms;
+}
+.hero-texto > *:nth-child(3) {
+  animation-delay: 140ms;
+}
+.hero-texto > *:nth-child(4) {
+  animation-delay: 210ms;
+}
+.hero-texto > *:nth-child(5) {
+  animation-delay: 280ms;
+}
+
+/* Solo opacidad: las capturas ya llevan su propio transform para colocarse y
+   solaparse, y animar transform aquí lo pisaría. */
+.hero-pantallas .pantalla {
+  animation: aparecer 700ms var(--ease-out) both;
+  animation-delay: 220ms;
+}
+
+.hero-pantallas .pantalla-atras {
+  animation-delay: 120ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-texto > *,
+  .hero-pantallas .pantalla {
+    animation: none;
+  }
+}
