@@ -118,7 +118,8 @@ docs/{contexto,adr}/
 | [012](docs/adr/ADR-012-tensiones-entre-reglas-de-entrenamiento.md) | Cómo se resuelven las contradicciones entre las reglas R1–R8 |
 | [013](docs/adr/ADR-013-prompt-propio-para-el-modelo-de-voz.md) | Un prompt propio para el modelo de voz, y herramientas donde el fallo no cabe |
 | [014](docs/adr/ADR-014-jobs-en-memoria.md) | Los avisos programados viven en memoria y se reconstruyen al arrancar |
-| [015](docs/adr/ADR-015-direccion-visual-y-presupuesto-de-movimiento.md) | Una dirección visual propia y un presupuesto de movimiento |
+| [015](docs/adr/ADR-015-direccion-visual-y-presupuesto-de-movimiento.md) | Una dirección visual propia y un presupuesto de movimiento — *superseded por [016](docs/adr/ADR-016-el-acento-se-aleja-del-naranja-de-strava.md)* |
+| [016](docs/adr/ADR-016-el-acento-se-aleja-del-naranja-de-strava.md) | El acento se aleja del naranja de Strava, y seis animaciones más |
 
 Cada ADR incluye sus **consecuencias negativas**. Un ADR sin ellas es publicidad, no ingeniería.
 

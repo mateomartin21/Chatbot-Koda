@@ -1,6 +1,6 @@
 # ADR-015 · Una dirección visual propia y un presupuesto de movimiento
 
-**Estado:** Aceptado
+**Estado:** Superseded by [ADR-016](ADR-016-el-acento-se-aleja-del-naranja-de-strava.md)
 **Fecha:** 2026-08-14
 
 ## Contexto

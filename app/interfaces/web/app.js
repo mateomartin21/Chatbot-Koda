@@ -206,6 +206,12 @@ function agregarMensaje(rol, { voz = false } = {}) {
   if (rol === "coach") {
     const avatar = crear("div", "avatar");
     avatar.appendChild(icono("koda"));
+    // Tres barras que solo se ven mientras suena su voz. El anillo de antes decía
+    // "algo pasa"; esto dice "está hablando", que es lo único que necesitas saber
+    // si el móvil va en el bolsillo y solo lo miras de reojo.
+    const ecualizador = crear("span", "ecualizador");
+    ecualizador.append(crear("i"), crear("i"), crear("i"));
+    avatar.appendChild(ecualizador);
     fila.appendChild(avatar);
   }
 
@@ -228,6 +234,18 @@ function agregarMensaje(rol, { voz = false } = {}) {
     fila,
     escribir(texto) {
       clearInterval(temporizador);
+      // Si estaba esperando, los tres puntos y la respuesta se cruzan con un
+      // desenfoque. Un cambio seco deja ver dos cosas superpuestas durante un
+      // fotograma; así el ojo lee una sola que se convierte en otra.
+      if (cuerpo.querySelector(".pensando")) {
+        cuerpo.classList.add("cambiando");
+        setTimeout(() => {
+          pintarTexto(cuerpo, texto);
+          cuerpo.classList.remove("cambiando", "provisional");
+          alFinal();
+        }, 160);
+        return;
+      }
       pintarTexto(cuerpo, texto);
       cuerpo.classList.remove("provisional");
       alFinal();
@@ -789,6 +807,81 @@ function cerrarPanel(panel) {
   if (panel === panelPerfil) modoBienvenida(false);
 }
 
+const EASE_OUT = "cubic-bezier(0.23, 1, 0.32, 1)";
+const menosMovimiento = window.matchMedia("(prefers-reduced-motion: reduce)");
+const esHoja = window.matchMedia("(max-width: 759px)");
+
+/* Arrastrar la hoja para cerrarla. En móvil el panel sube desde abajo y enseña un
+   asa: el asa promete que se puede empujar hacia abajo, así que tiene que cumplirlo.
+   Se arrastra solo desde la cabecera — desde el contenido pelearía con el scroll. */
+function hacerArrastrable(panel) {
+  const asa = panel.querySelector(".cabecera-panel");
+  let origenY = null;
+  let origenTiempo = 0;
+  let recorrido = 0;
+
+  asa.addEventListener("pointerdown", (evento) => {
+    if (!esHoja.matches || panel.classList.contains("modo-bienvenida")) return;
+    origenY = evento.clientY;
+    origenTiempo = Date.now();
+    recorrido = 0;
+    // Captura del puntero: si el dedo se sale del asa, el arrastre sigue siendo suyo.
+    asa.setPointerCapture(evento.pointerId);
+    panel.classList.add("arrastrando");
+  });
+
+  asa.addEventListener("pointermove", (evento) => {
+    if (origenY === null) return;
+    const delta = evento.clientY - origenY;
+    // Hacia arriba no hay a dónde ir, pero en vez de un tope seco se deja avanzar
+    // con rozamiento: en la vida real las cosas frenan, no chocan.
+    recorrido = delta > 0 ? delta : delta / 4;
+    panel.style.transform = `translateY(${recorrido}px)`;
+  });
+
+  const soltar = () => {
+    if (origenY === null) return;
+    const velocidad = Math.abs(recorrido) / Math.max(Date.now() - origenTiempo, 1);
+    origenY = null;
+    panel.classList.remove("arrastrando");
+    panel.style.transform = "";
+    // Un golpe rápido basta; no hay que arrastrar media pantalla para cerrar.
+    if (recorrido > panel.offsetHeight * 0.28 || (recorrido > 40 && velocidad > 0.11)) {
+      cerrarPanel(panel);
+    }
+  };
+
+  asa.addEventListener("pointerup", soltar);
+  asa.addEventListener("pointercancel", soltar);
+}
+
+/* Acordeón de las semanas. Es la única animación que cuesta layout en cada
+   fotograma, así que va corta. No se puede animar hacia `auto`: hay que medir. */
+function comoAcordeon(detalle) {
+  const cuerpo = detalle.querySelector(".sesiones");
+  detalle.querySelector("summary").addEventListener("click", (evento) => {
+    if (menosMovimiento.matches) return;
+    evento.preventDefault();
+    const alto = `${cuerpo.scrollHeight}px`;
+
+    if (!detalle.open) {
+      detalle.open = true;
+      cuerpo.animate([{ height: "0px" }, { height: alto }], {
+        duration: 200,
+        easing: EASE_OUT,
+      });
+      return;
+    }
+    const animacion = cuerpo.animate([{ height: alto }, { height: "0px" }], {
+      duration: 200,
+      easing: EASE_OUT,
+    });
+    animacion.onfinish = () => {
+      detalle.open = false;
+    };
+  });
+}
+
 function sincronizarAnclaje() {
   const anclado = planAnclado();
   app.classList.toggle("plan-anclado", anclado);
@@ -809,6 +902,7 @@ function sincronizarAnclaje() {
 }
 
 anchoParaAnclar.addEventListener("change", sincronizarAnclaje);
+[panelPlan, panelPerfil].forEach(hacerArrastrable);
 
 document.querySelectorAll("[data-abre]").forEach((boton) => {
   boton.addEventListener("click", () => {
@@ -1051,7 +1145,24 @@ function pintarPlan(plan) {
   plan.semanas.forEach((semana) =>
     semanas.appendChild(nodoSemana(semana, semana === semanaDeLaProxima)),
   );
+  semanas.querySelectorAll(".semana").forEach(comoAcordeon);
   contenidoPlan.appendChild(semanas);
+
+  escalonarEntrada(contenidoPlan);
+}
+
+/* Las tarjetas del panel entran en cascada. Es una superficie ocasional, no algo
+   que se vea cien veces al día — y el escalonado nunca bloquea: se puede tocar
+   cualquier cosa mientras entra. */
+function escalonarEntrada(contenedor) {
+  contenedor.classList.remove("escalonar");
+  [...contenedor.children].forEach((hijo, indice) => {
+    hijo.style.setProperty("--i", String(Math.min(indice, 6)));
+  });
+  // Un reflow forzado entre quitar y poner la clase, o el navegador agrupa los dos
+  // cambios y la animación no se vuelve a lanzar.
+  void contenedor.offsetHeight;
+  contenedor.classList.add("escalonar");
 }
 
 async function cargarPlan({ abrir = true } = {}) {

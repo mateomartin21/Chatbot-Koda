@@ -55,14 +55,15 @@
   --bruma: #838fae;
   --bruma-honda: #5a6584;
 
-  --amanecer: #fb7a46;
-  --amanecer-hondo: #ef6a34;
-  --alba: #ffc46b;
-  --brasa: rgba(251, 122, 70, 0.14);
+  --amanecer: #ffb43f;
+  --amanecer-hondo: #e8952a;
+  --alba: #ffd79a;
+  --brasa: rgba(255, 180, 63, 0.13);
 
   /* Semantica de entrenamiento: son los colores con los que se pintan las zonas
      en cualquier grafica de running, no una paleta decorativa. */
   --suave: #4fd1a5;
+  --suave-claro: #a5edd2;
   --largo: #6ca8ff;
   --alerta: #ff6b84;
 
@@ -156,6 +157,27 @@ body::after {
   outline: 2px solid var(--amanecer);
   outline-offset: 2px;
   border-radius: var(--r-xs);
+}
+
+/* Curvas de nivel de fondo. Es el lenguaje con el que se dibuja una ruta con
+   desnivel en cualquier mapa o GPS, asi que el fondo dice "running" sin una foto
+   de banco de un corredor. Se genera con scripts/generar_relieve.py.
+
+   Va como mascara y no como imagen para poder tenirlo: el degradado hace que las
+   curvas se apaguen hacia arriba, como un mapa que se pierde en la oscuridad. */
+.relieve {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(to top, var(--linea) 0%, rgba(35, 45, 71, 0.35) 45%, transparent 78%);
+  -webkit-mask-image: url("/relieve.svg");
+  mask-image: url("/relieve.svg");
+  -webkit-mask-size: 165% auto;
+  mask-size: 165% auto;
+  -webkit-mask-position: 30% bottom;
+  mask-position: 30% bottom;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
 }
 
 /* --- Elementos base --------------------------------------------------------- */
@@ -304,8 +326,8 @@ label {
 }
 
 .boton-primario {
-  background: linear-gradient(165deg, #ff9053, var(--amanecer-hondo));
-  color: #1a0b03;
+  background: linear-gradient(165deg, #ffbe55, var(--amanecer-hondo));
+  color: #1f1400;
   box-shadow: var(--sombra-1);
 }
 
@@ -391,7 +413,7 @@ label {
   place-items: center;
   border-radius: var(--r-md);
   background: linear-gradient(150deg, var(--alba), var(--amanecer-hondo));
-  color: #12080a;
+  color: #1f1400;
   box-shadow: var(--sombra-1);
   flex-shrink: 0;
 }
@@ -441,7 +463,7 @@ label {
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(60rem 40rem at 85% 110%, rgba(251, 122, 70, 0.16), transparent 62%),
+    radial-gradient(60rem 40rem at 85% 110%, rgba(255, 180, 63, 0.15), transparent 62%),
     radial-gradient(40rem 30rem at 10% -10%, rgba(108, 168, 255, 0.07), transparent 60%);
 }
 
@@ -644,14 +666,14 @@ label {
 }
 
 .mensaje-usuario .burbuja {
-  background: linear-gradient(165deg, #ff9053, var(--amanecer-hondo));
-  color: #1a0b03;
+  background: linear-gradient(165deg, #ffbe55, var(--amanecer-hondo));
+  color: #1f1400;
   border-bottom-right-radius: var(--r-xs);
   box-shadow: var(--sombra-1);
 }
 
 .mensaje-usuario .burbuja .dato {
-  color: #2a1206;
+  color: #2e1f00;
 }
 
 /* Contenido ya formateado: parrafos, listas y negritas. Se construye nodo a nodo
@@ -692,7 +714,7 @@ label {
 }
 
 .mensaje-usuario .burbuja ul li::before {
-  background: #1a0b03;
+  background: #1f1400;
 }
 
 .burbuja ol {
@@ -744,7 +766,7 @@ label {
 }
 
 .mensaje-usuario .etiqueta-voz {
-  color: rgba(26, 11, 3, 0.55);
+  color: rgba(31, 20, 0, 0.55);
   justify-content: flex-end;
   width: 100%;
 }
@@ -757,7 +779,7 @@ label {
 }
 
 .mensaje-usuario .provisional {
-  color: rgba(26, 11, 3, 0.62);
+  color: rgba(31, 20, 0, 0.62);
 }
 
 .provisional::after {
@@ -842,12 +864,25 @@ label {
 /* --- Estado vacio ----------------------------------------------------------- */
 
 .bienvenida {
+  position: relative;
   margin: auto 0;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: var(--e-3);
   padding: var(--e-4) 0 var(--e-6);
+}
+
+/* En el hilo el relieve va aun mas bajo: compite con el texto de la conversacion,
+   que es lo unico que importa ahi. */
+.relieve-suave {
+  opacity: 0.55;
+  -webkit-mask-position: 60% 120%;
+  mask-position: 60% 120%;
+}
+
+.bienvenida > *:not(.relieve) {
+  position: relative;
 }
 
 .bienvenida h2 {
@@ -990,8 +1025,8 @@ label {
 
 /* Solo se enciende cuando hay algo que mandar. */
 .caja-compositor:has(input:not(:placeholder-shown)) .boton-enviar {
-  background: linear-gradient(165deg, #ff9053, var(--amanecer-hondo));
-  color: #1a0b03;
+  background: linear-gradient(165deg, #ffbe55, var(--amanecer-hondo));
+  color: #1f1400;
 }
 
 /* --- Grabando --------------------------------------------------------------- */
@@ -1006,7 +1041,7 @@ label {
   gap: var(--e-3);
   height: 52px;
   padding: 0 var(--e-3) 0 var(--e-4);
-  border: 1px solid rgba(251, 122, 70, 0.35);
+  border: 1px solid rgba(255, 180, 63, 0.34);
   border-radius: var(--r-lg);
   background: var(--nocturno);
 }
@@ -1066,7 +1101,7 @@ label {
 
 .barra-grabacion .boton-mic {
   background: var(--amanecer);
-  color: #1a0b03;
+  color: #1f1400;
 }
 
 .barra-grabacion .boton-mic .icono-micro {
@@ -1153,6 +1188,9 @@ label {
 
 .cabecera-panel {
   position: relative;
+  /* El arrastre de la hoja se lleva el gesto: sin esto el navegador intenta
+     desplazar la pagina al mismo tiempo y el panel da tirones. */
+  touch-action: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1204,7 +1242,7 @@ label {
   padding: var(--e-4);
   border-radius: var(--r-lg);
   background:
-    radial-gradient(28rem 14rem at 90% -20%, rgba(251, 122, 70, 0.13), transparent 70%),
+    radial-gradient(28rem 14rem at 90% -20%, rgba(255, 180, 63, 0.12), transparent 70%),
     var(--elevado);
   border: 1px solid var(--linea-tenue);
 }
@@ -1275,11 +1313,11 @@ label {
   opacity: 0.75;
 }
 .carril-taper {
-  background: var(--alba);
+  background: var(--suave-claro);
 }
 .carril-actual {
   background: var(--amanecer);
-  box-shadow: 0 0 12px rgba(251, 122, 70, 0.5);
+  box-shadow: 0 0 12px rgba(255, 180, 63, 0.45);
 }
 
 /* Momento unico: los carriles crecen en cascada al abrir el plan. Es lo que se ve
@@ -1327,7 +1365,7 @@ label {
   align-items: flex-start;
   padding: var(--e-4);
   border-radius: var(--r-md);
-  border: 1px solid rgba(251, 122, 70, 0.28);
+  border: 1px solid rgba(255, 180, 63, 0.26);
   background: var(--brasa);
 }
 
@@ -1480,8 +1518,8 @@ label {
 }
 
 .etiqueta-taper {
-  background: rgba(255, 196, 107, 0.14);
-  color: var(--alba);
+  background: rgba(165, 237, 210, 0.13);
+  color: var(--suave-claro);
 }
 
 .sesiones {
@@ -1766,7 +1804,7 @@ label {
 
 .interruptor input:checked + .pista-interruptor::after {
   transform: translateX(17px);
-  background: #fff5ef;
+  background: #fffaf0;
 }
 
 .interruptor input:focus-visible + .pista-interruptor {
@@ -1865,6 +1903,138 @@ label {
 }
 
 /* =============================================================================
+   Movimiento anadido — cada bloque dice para que sirve.
+   El criterio esta en ADR-015: si no se puede nombrar el problema que resuelve,
+   no se anima.
+   ============================================================================= */
+
+/* Cambio de pantalla (entrar -> app). Se ve una vez por sesion, despues de una
+   redireccion: sin esto el contenido aparece de golpe y parece un salto de pagina.
+   Solo opacidad, 220ms. */
+/* Se anima .chat y no .app: una animacion de opacidad con fill:both deja un
+   contexto de apilamiento permanente en el elemento, y el panel dejaria de poder
+   salir por encima del velo — se ve como si el plan estuviera desenfocado. */
+.pantalla-login:not([hidden]),
+.app:not([hidden]) > .chat {
+  animation: aparecer 220ms var(--ease-out) both;
+}
+
+@keyframes aparecer {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Las sugerencias del estado vacio. Primera vez que se abre la app y nunca mas:
+   es el unico sitio donde el presupuesto de deleite esta permitido sin discusion.
+   60ms entre una y otra — mas seria lento. */
+.bienvenida .chip {
+  animation: entrar-chip 300ms var(--ease-out) both;
+}
+
+.bienvenida .chip:nth-child(1) {
+  animation-delay: 80ms;
+}
+.bienvenida .chip:nth-child(2) {
+  animation-delay: 140ms;
+}
+.bienvenida .chip:nth-child(3) {
+  animation-delay: 200ms;
+}
+
+@keyframes entrar-chip {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+}
+
+/* Contenido del plan al abrirlo. El panel es una superficie ocasional, no algo
+   que se vea cien veces al dia. El escalonado nunca bloquea: se puede tocar
+   cualquier cosa mientras entra. */
+.contenido-panel.escalonar > * {
+  animation: entrar-tarjeta 280ms var(--ease-out) both;
+  animation-delay: calc(var(--i) * 40ms);
+}
+
+@keyframes entrar-tarjeta {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+/* Koda hablando. El anillo solo decia "algo pasa"; tres barras que se mueven
+   dicen "esta sonando su voz", que es lo unico que el runner necesita saber
+   cuando el movil esta en el bolsillo y solo lo mira de reojo. */
+.ecualizador {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 100%;
+  height: 100%;
+}
+
+.avatar.hablando .ecualizador {
+  display: flex;
+}
+
+.avatar.hablando > svg {
+  display: none;
+}
+
+.ecualizador i {
+  width: 2.5px;
+  height: 40%;
+  border-radius: var(--r-full);
+  background: var(--amanecer);
+  transform-origin: center;
+  animation: ecualizar 800ms var(--ease-in-out) infinite alternate;
+}
+
+.ecualizador i:nth-child(2) {
+  animation-delay: 160ms;
+  height: 62%;
+}
+.ecualizador i:nth-child(3) {
+  animation-delay: 320ms;
+}
+
+@keyframes ecualizar {
+  from {
+    transform: scaleY(0.45);
+  }
+  to {
+    transform: scaleY(1.25);
+  }
+}
+
+/* Acordeon de las semanas. Es la unica animacion que cuesta layout en cada
+   fotograma, asi que va corta a proposito: 200ms. El alto lo mide el JS — animar
+   hacia "auto" no se puede. */
+.sesiones {
+  overflow: hidden;
+}
+
+/* La espera de Koda se sustituye por su respuesta. Un cambio seco deja ver los
+   dos textos cruzandose; 3px de desenfoque los funde y el ojo lee una sola cosa
+   que se convierte en otra. */
+.cambiando {
+  filter: blur(3px);
+  opacity: 0;
+  transition:
+    filter 160ms ease,
+    opacity 160ms ease;
+}
+
+/* Mientras el dedo arrastra la hoja, manda el dedo: la transicion se apaga para
+   que el panel siga al pulgar sin retraso, y vuelve al soltar. */
+.panel.arrastrando {
+  transition: none;
+}
+
+/* =============================================================================
    Menos movimiento
    Menos y mas suave, no cero: lo que ayuda a entender se queda (opacidad, color),
    lo que se mueve por el espacio se va.
@@ -1876,8 +2046,15 @@ label {
   }
 
   .mensaje,
-  .carriles.animar .carril {
+  .carriles.animar .carril,
+  .bienvenida .chip,
+  .contenido-panel.escalonar > * {
     animation: aparecer 180ms ease both;
+    animation-delay: 0ms;
+  }
+
+  .ecualizador i {
+    animation-duration: 2s;
   }
 
   .panel {
@@ -1898,9 +2075,4 @@ label {
     transform: none;
   }
 
-  @keyframes aparecer {
-    from {
-      opacity: 0;
-    }
-  }
 }
