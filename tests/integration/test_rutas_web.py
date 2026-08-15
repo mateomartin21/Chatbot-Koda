@@ -60,6 +60,7 @@ def test_los_recursos_compartidos_se_sirven_desde_la_raiz() -> None:
         "/koda/cara-duda.webp",
         "/koda/cara-rie.webp",
         "/koda/corriendo.webp",
+        "/capturas/calendario.jpg",
         "/iconos-app/icono-180.png",
         "/iconos-app/icono-512.png",
     ):
