@@ -9,6 +9,7 @@ from app.config import Settings
 from app.domain.ports.llm_port import (
     EjecutorHerramientas,
     Herramienta,
+    Imagen,
     LlamadaHerramienta,
     LLMPort,
 )
@@ -27,6 +28,10 @@ class BedrockConverse(LLMPort):
     def soporta_herramientas(self) -> bool:
         return True
 
+    @property
+    def soporta_imagenes(self) -> bool:
+        return True
+
     async def conversar(
         self,
         mensaje_usuario: str,
@@ -34,8 +39,15 @@ class BedrockConverse(LLMPort):
         system_prompt: str,
         herramientas: Sequence[Herramienta] = (),
         ejecutar: EjecutorHerramientas | None = None,
+        imagen: Imagen | None = None,
     ) -> str:
-        mensajes: list[dict[str, Any]] = [{"role": "user", "content": [{"text": mensaje_usuario}]}]
+        # La imagen va ANTES del texto en el mismo turno: Bedrock lee el contenido en
+        # orden, y con el texto delante el modelo empieza a contestar antes de mirar.
+        contenido: list[dict[str, Any]] = []
+        if imagen is not None:
+            contenido.append({"image": {"format": imagen.formato, "source": {"bytes": imagen.datos}}})
+        contenido.append({"text": mensaje_usuario})
+        mensajes: list[dict[str, Any]] = [{"role": "user", "content": contenido}]
 
         # Tope de iteraciones (06-PROMPTS.md §4): sin el, un modelo que se encabezona
         # llamando herramientas dispara coste y latencia sin que nadie lo pare.

@@ -16,7 +16,7 @@
 | 🏃 **Planes reales** | 5K, 10K, 21K y maratón, con ritmos calculados, semanas de descarga y tapering |
 | 🧠 **Recuerda** | Memoria en tres capas: si le cuentas que te molesta la rodilla, lo tiene en cuenta semanas después |
 | 📧 **Te escribe** | Correo con la sesión del día, check-in nocturno y resumen semanal |
-| 📷 **Lee tu reloj** | Le mandas una foto de la pantalla del reloj y registra el entrenamiento solo |
+| 📷 **Lee tu reloj** | Le mandas una foto de la pantalla del reloj, lee los números y da la sesión por hecha |
 | 🔒 **Multiusuario** | Autenticación sin contraseñas y aislamiento estricto entre usuarios |
 
 ---
@@ -122,6 +122,7 @@ docs/{contexto,adr}/
 | [014](docs/adr/ADR-014-jobs-en-memoria.md) | Los avisos programados viven en memoria y se reconstruyen al arrancar |
 | [015](docs/adr/ADR-015-direccion-visual-y-presupuesto-de-movimiento.md) | Una dirección visual propia y un presupuesto de movimiento — *superseded por [016](docs/adr/ADR-016-el-acento-se-aleja-del-naranja-de-strava.md)* |
 | [016](docs/adr/ADR-016-el-acento-se-aleja-del-naranja-de-strava.md) | El acento se aleja del naranja de Strava, y seis animaciones más |
+| [017](docs/adr/ADR-017-la-foto-se-reprocesa-antes-de-salir.md) | La foto se reprocesa antes de salir del servidor |
 
 Cada ADR incluye sus **consecuencias negativas**. Un ADR sin ellas es publicidad, no ingeniería.
 

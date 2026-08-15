@@ -2,6 +2,7 @@
 nunca del formulario. Ver docs/contexto/03-MULTIUSUARIO-Y-SEGURIDAD.md §4.2."""
 
 import base64
+import logging
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 from pydantic import BaseModel
@@ -14,6 +15,7 @@ from app.domain.models import Mensaje, Runner
 from app.domain.ports.llm_port import LLMPort
 from app.domain.ports.stt_port import STTPort
 from app.domain.ports.tts_port import TTSPort
+from app.infrastructure.imagenes.sanitizar import ImagenInvalida, sanear
 from app.infrastructure.scheduler.apscheduler_adapter import APSchedulerAvisos
 from app.interfaces.api.deps import (
     Repos,
@@ -30,6 +32,7 @@ from app.interfaces.api.deps import (
 from app.interfaces.avisos import programar_para
 
 router = APIRouter(prefix="/api", tags=["mensajes"])
+logger = logging.getLogger(__name__)
 
 
 class MensajeRespuesta(BaseModel):
@@ -42,6 +45,7 @@ async def enviar_mensaje(
     runner: Runner = Depends(get_current_runner),
     texto: str | None = Form(None),
     audio: UploadFile | None = File(None),
+    foto: UploadFile | None = File(None),
     stt: STTPort = Depends(get_stt_port),
     llm: LLMPort = Depends(get_llm_port),
     tts: TTSPort = Depends(get_tts_port),
@@ -52,6 +56,20 @@ async def enviar_mensaje(
 ) -> MensajeRespuesta:
     audio_bytes = await audio.read() if audio is not None else None
     audio_mime = audio.content_type if audio is not None else None
+
+    # La foto se sanea AQUI, en el borde: a partir de esta linea nadie maneja los
+    # bytes que subio el navegador. Si no es una imagen, se contesta y se corta —
+    # sin llamar al modelo, que es lo que cuesta dinero. Ver ADR-017.
+    imagen = None
+    if foto is not None:
+        try:
+            imagen = sanear(await foto.read())
+        except ImagenInvalida:
+            logger.info("Foto rechazada en el saneado")
+            return MensajeRespuesta(
+                texto="Esa foto no la puedo abrir. Prueba con otra, o dímelo hablando.",
+                audio_base64=None,
+            )
 
     repos_coach = ReposDelCoach(
         runners=repos.runners,
@@ -74,11 +92,12 @@ async def enviar_mensaje(
         # El ejecutor se ata al runner del JWT: el modelo elige QUE herramienta, nunca
         # sobre quien. Ver docs/contexto/03-MULTIUSUARIO-Y-SEGURIDAD.md §4.2.
         ejecutar=ejecutor_para(runner, repos_coach),
+        imagen=imagen,
     )
 
     # El turno se guarda DESPUES de responder: la memoria no puede estar en el camino
     # critico de la latencia. Si esto fallara, el runner ya tiene su respuesta.
-    modalidad = "voz" if audio_bytes else "texto"
+    modalidad = "voz" if audio_bytes else "imagen" if imagen else "texto"
     turno = [
         Mensaje(rol="usuario", contenido=respuesta.texto_usuario, modalidad=modalidad),
         Mensaje(rol="coach", contenido=respuesta.texto, modalidad=modalidad),

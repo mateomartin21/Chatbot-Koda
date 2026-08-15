@@ -16,6 +16,11 @@ sqlalchemy[asyncio]>=2.0
 asyncpg>=0.30
 alembic>=1.14
 
+# Imagenes. Solo para SANEAR lo que sube el runner antes de mandarlo al modelo:
+# reprocesar los pixeles tira el EXIF, y el EXIF de una foto de movil lleva las
+# coordenadas GPS de donde se saco. Ver docs/adr/ADR-017.
+Pillow>=11.0
+
 # Configuracion y seguridad
 pydantic-settings>=2.6
 python-dotenv>=1.0

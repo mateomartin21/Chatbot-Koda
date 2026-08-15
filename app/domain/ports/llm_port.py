@@ -23,6 +23,20 @@ class Herramienta:
 
 
 @dataclass(frozen=True)
+class Imagen:
+    """Una imagen YA saneada, lista para salir hacia el modelo.
+
+    Que este tipo exista en el dominio y no en infraestructura es a proposito: el
+    puerto solo acepta imagenes que han pasado por el saneado, asi que un adaptador
+    no puede mandar por error los bytes crudos que subio el navegador. Ver
+    docs/adr/ADR-017-la-foto-se-reprocesa-antes-de-salir.md.
+    """
+
+    datos: bytes
+    formato: str  # jpeg | png | webp | gif
+
+
+@dataclass(frozen=True)
 class LlamadaHerramienta:
     nombre: str
     argumentos: dict[str, Any]
@@ -43,10 +57,18 @@ class LLMPort(ABC):
         system_prompt: str,
         herramientas: Sequence[Herramienta] = (),
         ejecutar: EjecutorHerramientas | None = None,
+        imagen: Imagen | None = None,
     ) -> str: ...
 
     @property
     def soporta_herramientas(self) -> bool:
         """Un adaptador que no sabe de herramientas y recibe unas debe decirlo, no
         ignorarlas en silencio: el modelo prometeria un plan que nadie ha creado."""
+        return False
+
+    @property
+    def soporta_imagenes(self) -> bool:
+        """Mismo motivo que arriba, y peor: un modelo que no ve la foto pero recibe el
+        texto que la acompana contestaria como si la hubiera visto. El gateway usa
+        esta propiedad para saltarse los tiers ciegos en vez de dejarles inventar."""
         return False

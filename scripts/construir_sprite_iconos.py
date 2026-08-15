@@ -41,6 +41,7 @@ ICONOS = {
     "pulse": "pulso",
     "sneaker-move": "zapatilla",
     "bed": "descanso",
+    "camera": "camara",
 }
 
 CABECERA = f"""<?xml version="1.0" encoding="UTF-8"?>

@@ -299,19 +299,33 @@ function agregarMensaje(rol, { voz = false } = {}) {
     hablando(activo) {
       fila.querySelector(".avatar")?.classList.toggle("hablando", activo);
     },
+
+    // La foto se ve en el hilo como la mandaste. Sin esto, el turno del runner
+    // queda vacío y Koda contesta a algo que no está a la vista.
+    conFoto(url) {
+      const miniatura = document.createElement("img");
+      miniatura.className = "foto-enviada";
+      miniatura.src = url;
+      miniatura.alt = "Foto que mandaste";
+      miniatura.addEventListener("load", () => URL.revokeObjectURL(url), { once: true });
+      burbuja.insertBefore(miniatura, cuerpo);
+      alFinal();
+    },
   };
 }
 
 // --- Cascada (POST /api/mensajes) --------------------------------------------
 
-async function enviarMensaje({ texto, audioBlob, mensajeUsuarioYaPuesto = false }) {
+async function enviarMensaje({ texto, audioBlob, foto, mensajeUsuarioYaPuesto = false }) {
   const formData = new FormData();
   if (texto) formData.append("texto", texto);
   if (audioBlob) formData.append("audio", audioBlob, "mensaje.webm");
+  if (foto) formData.append("foto", foto, foto.name || "foto.jpg");
 
   if (!mensajeUsuarioYaPuesto) {
     const mio = agregarMensaje("usuario", { voz: Boolean(audioBlob) });
-    mio.escribir(texto || "Mensaje de voz");
+    if (foto) mio.conFoto(URL.createObjectURL(foto));
+    mio.escribir(texto || (foto ? "" : "Mensaje de voz"));
   }
 
   const respuesta = agregarMensaje("coach");
@@ -358,10 +372,52 @@ function reproducirMp3(base64, mensaje) {
 formMensaje.addEventListener("submit", async (evento) => {
   evento.preventDefault();
   const texto = inputTexto.value.trim();
-  if (!texto || sesionVoz) return; // sesionVoz: ya hay un turno en curso
+  if (sesionVoz) return; // ya hay un turno en curso
+
+  // Con foto siempre va por la cascada: Nova Sonic es audio a audio y no ve.
+  if (fotoElegida) {
+    const foto = fotoElegida;
+    quitarFoto();
+    inputTexto.value = "";
+    await enviarMensaje({ texto, foto });
+    return;
+  }
+  if (!texto) return;
   inputTexto.value = "";
   await enviarTexto(texto);
 });
+
+// --- Foto -------------------------------------------------------------------
+
+const campoFoto = document.getElementById("foto");
+const botonFoto = document.getElementById("boton-foto");
+const previaFoto = document.getElementById("previa-foto");
+const previaImagen = document.getElementById("previa-imagen");
+
+let fotoElegida = null;
+
+function quitarFoto() {
+  if (previaImagen.src.startsWith("blob:")) URL.revokeObjectURL(previaImagen.src);
+  fotoElegida = null;
+  campoFoto.value = "";
+  previaFoto.hidden = true;
+  previaImagen.removeAttribute("src");
+}
+
+botonFoto.addEventListener("click", () => campoFoto.click());
+
+campoFoto.addEventListener("change", () => {
+  const archivo = campoFoto.files?.[0];
+  if (!archivo) return;
+  // No se manda al elegirla: primero se ve, por si la cámara pilló otra cosa. Y
+  // así se le puede añadir un texto ("¿qué tal me quedó?") antes de enviarla.
+  fotoElegida = archivo;
+  previaImagen.src = URL.createObjectURL(archivo);
+  previaFoto.hidden = false;
+  inputTexto.focus();
+});
+
+document.getElementById("quitar-foto").addEventListener("click", quitarFoto);
 
 document.querySelectorAll(".chip").forEach((chip) => {
   chip.addEventListener("click", () => {

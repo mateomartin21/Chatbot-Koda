@@ -132,6 +132,22 @@ class InMemoryPlanRepo(PlanRepo):
         activo = await self.obtener_activo(runner_id)
         return activo.proxima_sesion(desde) if activo else None
 
+    async def marcar_completada(self, runner_id: UUID, fecha: date) -> SesionProgramada | None:
+        activo = await self.obtener_activo(runner_id)
+        if activo is None:
+            return None
+        hecha = next((s for s in activo.sesiones_programadas() if s.fecha == fecha), None)
+        if hecha is None:
+            return None
+
+        # PlanActivo es inmutable: se sustituye por una copia con la sesion anadida al
+        # conjunto de completadas, igual que hace el SQL al releer el plan entero.
+        historial = self._por_runner[runner_id]
+        historial[-1] = replace(
+            activo, completadas=activo.completadas | {(hecha.semana, hecha.sesion.dia_semana)}
+        )
+        return next((s for s in historial[-1].sesiones_programadas() if s.fecha == fecha), None)
+
 
 class InMemoryConversacionRepo(ConversacionRepo):
     def __init__(self) -> None:

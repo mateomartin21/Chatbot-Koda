@@ -374,8 +374,33 @@ class SqlPlanRepo(PlanRepo):
             completada=fila.completada,
         )
 
+    # --- Memoria (docs/contexto/05-MEMORIA.md) --------------------------------------
 
-# --- Memoria (docs/contexto/05-MEMORIA.md) --------------------------------------
+    async def marcar_completada(self, runner_id: UUID, fecha: date) -> SesionProgramada | None:
+        # runner_id en el WHERE aunque la fecha ya acote bastante: sin el, bastaria
+        # con acertar un dia para marcar la sesion de otra persona.
+        fila = (
+            await self._session.execute(
+                select(SesionORM).where(
+                    SesionORM.runner_id == runner_id,
+                    SesionORM.fecha_programada == fecha,
+                    SesionORM.tipo != TipoSesion.DESCANSO.value,
+                )
+            )
+        ).scalar_one_or_none()
+        if fila is None:
+            return None
+
+        fila.completada = True
+        await self._session.flush()
+
+        activo = await self.obtener_activo(runner_id)
+        if activo is None:
+            return None
+        return next(
+            (s for s in activo.sesiones_programadas() if s.fecha == fecha),
+            None,
+        )
 
 
 class SqlConversacionRepo(ConversacionRepo):

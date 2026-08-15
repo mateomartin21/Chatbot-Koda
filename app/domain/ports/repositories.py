@@ -82,6 +82,16 @@ class PlanRepo(ABC):
     @abstractmethod
     async def proxima_sesion(self, runner_id: UUID, desde: date) -> SesionProgramada | None: ...
 
+    @abstractmethod
+    async def marcar_completada(self, runner_id: UUID, fecha: date) -> SesionProgramada | None:
+        """Da por hecha la sesion de ese dia. Devuelve None si ese dia no tocaba nada.
+
+        Se busca por FECHA y no por identificador de sesion: el runner dice "hoy" o
+        "ayer", nunca un UUID. Y va acotada por runner_id como todo lo demas — una
+        firma que aceptara solo el id de la sesion dejaria marcar las de otro.
+        """
+        ...
+
 
 class ConversacionRepo(ABC):
     """Capa 2 de la memoria: la ventana corta de docs/contexto/05-MEMORIA.md §2."""

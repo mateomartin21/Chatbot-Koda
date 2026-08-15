@@ -14,7 +14,13 @@ import json
 import logging
 from datetime import date, time
 
-from app.application.contexto import ReposDelCoach, perfil_hablado, plan_hablado
+from app.application.contexto import (
+    ReposDelCoach,
+    fecha_hablada,
+    perfil_hablado,
+    plan_hablado,
+    sesion_hablada,
+)
 from app.application.planes import (
     DatosDelPlan,
     consultar_plan_activo,
@@ -22,7 +28,7 @@ from app.application.planes import (
     crear_plan,
 )
 from app.application.recordatorios import descrito
-from app.domain.models import DatosPerfil, Runner, TipoRecordatorio
+from app.domain.models import DatosPerfil, Hecho, Runner, TipoRecordatorio
 from app.domain.ports.llm_port import EjecutorHerramientas, Herramienta, LlamadaHerramienta
 from app.domain.training.modelos import PlanNoViable, ValorInvalido
 from app.domain.training.paces import Ritmo
@@ -83,6 +89,30 @@ HERRAMIENTAS: tuple[Herramienta, ...] = (
                 "hora": {"type": "integer", "minimum": 0, "maximum": 23},
                 "minuto": {"type": "integer", "minimum": 0, "maximum": 59},
                 "activo": {"type": "boolean"},
+            },
+        },
+    ),
+    Herramienta(
+        nombre="registrar_entrenamiento",
+        descripcion=(
+            "Da por hecha la sesion de un dia y apunta lo que el runner corrio de "
+            "verdad. Usala cuando te mande una foto de la pantalla del reloj o te "
+            "cuente que ya salio. Lee los numeros de la foto tal cual aparecen: si "
+            "alguno no se ve, no lo mandes en vez de adivinarlo."
+        ),
+        esquema={
+            "type": "object",
+            "properties": {
+                "distancia_km": {"type": "number"},
+                "duracion_min": {"type": "number"},
+                # Mismo desglose que en crear_plan y por el mismo motivo: un modelo
+                # que compone la fecha entera se inventa el anio. Sin dia ni mes, hoy.
+                "dia": {"type": "integer", "minimum": 1, "maximum": 31},
+                "mes": {"type": "integer", "minimum": 1, "maximum": 12},
+                "sensacion": {
+                    "type": "string",
+                    "description": "Como dijo que se sintio, si lo dijo. Con sus palabras.",
+                },
             },
         },
     ),
@@ -231,6 +261,51 @@ async def _guardar_datos(runner: Runner, repos: ReposDelCoach, argumentos: dict)
     return respuesta
 
 
+async def _registrar_entrenamiento(runner: Runner, repos: ReposDelCoach, argumentos: dict, hoy: date) -> str:
+    """Marca la sesion como hecha y guarda lo que se corrio de verdad.
+
+    Los numeros vienen de un modelo leyendo la pantalla de un reloj en una foto, asi
+    que NO se usan para recalcular nada del plan: se apuntan como un hecho y se le
+    repiten al runner para que los corrija si el modelo leyo mal. El dominio sigue
+    calculando solo con la marca que el runner ha confirmado a mano.
+    """
+    try:
+        dia = date(hoy.year, int(argumentos["mes"]), int(argumentos["dia"]))
+        # Nadie fotografia el reloj de una carrera que aun no ha hecho: una fecha en
+        # el futuro es el modelo equivocandose de mes.
+        fecha = dia if dia <= hoy else dia.replace(year=dia.year - 1)
+    except (KeyError, TypeError, ValueError):
+        fecha = hoy
+
+    hecha = await repos.planes.marcar_completada(runner.id, fecha)
+
+    partes = []
+    if (km := argumentos.get("distancia_km")) is not None:
+        partes.append(f"{float(km):g} km")
+    if (minutos := argumentos.get("duracion_min")) is not None:
+        partes.append(f"{float(minutos):g} min")
+    if sensacion := argumentos.get("sensacion"):
+        partes.append(str(sensacion))
+    resumen = ", ".join(partes) if partes else "sin datos"
+
+    if repos.memoria is not None and partes:
+        await repos.memoria.guardar(
+            runner.id,
+            [Hecho(categoria="logro", hecho=f"El {fecha_hablada(fecha)} corrio {resumen}.")],
+        )
+
+    if hecha is None:
+        return (
+            f"Apuntado: {resumen}. Ese dia no le tocaba nada en el plan, asi que no se "
+            f"ha marcado ninguna sesion. Repitele los numeros por si leiste mal la foto."
+        )
+    return (
+        f"Marcada como hecha la sesion del {fecha_hablada(fecha)} ({sesion_hablada(hecha)}). "
+        f"Registrado: {resumen}. Repitele los numeros al runner por si leiste mal la "
+        f"pantalla, y comenta que tal le queda respecto a lo que tocaba."
+    )
+
+
 def ejecutor_para(runner: Runner, repos: ReposDelCoach, hoy: date | None = None) -> EjecutorHerramientas:
     """Ata las herramientas a UN runner concreto. El modelo solo elige el nombre y los
     argumentos; de quien son los datos lo decide este cierre, no la conversacion."""
@@ -252,6 +327,8 @@ def ejecutor_para(runner: Runner, repos: ReposDelCoach, hoy: date | None = None)
             return await _guardar_datos(actual, repos, llamada.argumentos)
         if llamada.nombre == "configurar_recordatorio":
             return await _configurar_recordatorio(actual, repos, llamada.argumentos)
+        if llamada.nombre == "registrar_entrenamiento":
+            return await _registrar_entrenamiento(actual, repos, llamada.argumentos, dia)
         return f"No existe ninguna herramienta llamada {llamada.nombre}."
 
     return ejecutar

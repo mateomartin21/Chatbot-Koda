@@ -121,7 +121,26 @@
       </div>
 
       <form id="form-mensaje" class="compositor">
+        <!-- La vista previa aparece sobre la caja, no dentro: dentro empujaria el
+             campo de texto y el compositor daria un salto al elegir la foto. -->
+        <div id="previa-foto" class="previa-foto" hidden>
+          <img id="previa-imagen" alt="Foto que vas a enviar" />
+          <div class="previa-texto">
+            <strong>Foto lista</strong>
+            <span class="letra-chica">Escribe algo o mándala tal cual.</span>
+          </div>
+          <button type="button" id="quitar-foto" class="boton-icono" aria-label="Quitar la foto">
+            <svg aria-hidden="true"><use href="/iconos.svg#i-cerrar" /></svg>
+          </button>
+        </div>
+
         <div class="caja-compositor">
+          <!-- capture="environment" abre la camara trasera directamente en el movil,
+               que es el gesto real: sacar la foto al reloj recien terminado. -->
+          <input type="file" id="foto" accept="image/*" capture="environment" hidden />
+          <button type="button" id="boton-foto" class="boton-mic" aria-label="Mandar una foto">
+            <svg aria-hidden="true"><use href="/iconos.svg#i-camara" /></svg>
+          </button>
           <input type="text" id="texto" placeholder="Escribe o toca el micro"
                  autocomplete="off" enterkeyhint="send" />
           <button type="button" id="boton-mic" class="boton-mic" aria-label="Grabar mensaje de voz">

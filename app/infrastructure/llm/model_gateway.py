@@ -12,7 +12,7 @@ import asyncio
 import logging
 from collections.abc import Sequence
 
-from app.domain.ports.llm_port import EjecutorHerramientas, Herramienta, LLMPort
+from app.domain.ports.llm_port import EjecutorHerramientas, Herramienta, Imagen, LLMPort
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +35,10 @@ class ModelGatewayLLM(LLMPort):
     def soporta_herramientas(self) -> bool:
         return any(tier.soporta_herramientas for tier in self._tiers)
 
+    @property
+    def soporta_imagenes(self) -> bool:
+        return any(tier.soporta_imagenes for tier in self._tiers)
+
     async def conversar(
         self,
         mensaje_usuario: str,
@@ -42,7 +46,23 @@ class ModelGatewayLLM(LLMPort):
         system_prompt: str,
         herramientas: Sequence[Herramienta] = (),
         ejecutar: EjecutorHerramientas | None = None,
+        imagen: Imagen | None = None,
     ) -> str:
+        # Con foto solo entran los tiers que ven. Un modelo ciego recibiria el texto
+        # que la acompana ("registra esto") y contestaria como si la hubiera mirado:
+        # el runner se creeria que su entrenamiento quedo apuntado. Antes ninguna
+        # respuesta que una inventada.
+        if imagen is not None:
+            return await self._probar(
+                [t for t in self._tiers if t.soporta_imagenes],
+                mensaje_usuario,
+                system_prompt,
+                herramientas if self.soporta_herramientas else (),
+                ejecutar,
+                timeout=_TIMEOUT_CON_HERRAMIENTAS_SEGUNDOS,
+                imagen=imagen,
+            )
+
         if herramientas:
             capaces = [t for t in self._tiers if t.soporta_herramientas]
             try:
@@ -74,6 +94,7 @@ class ModelGatewayLLM(LLMPort):
         herramientas: Sequence[Herramienta],
         ejecutar: EjecutorHerramientas | None,
         timeout: float | None = None,
+        imagen: Imagen | None = None,
     ) -> str:
         if not tiers:
             raise RuntimeError("No hay ningun tier disponible para esta llamada")
@@ -86,6 +107,7 @@ class ModelGatewayLLM(LLMPort):
                         system_prompt=system_prompt,
                         herramientas=herramientas,
                         ejecutar=ejecutar,
+                        imagen=imagen,
                     ),
                     timeout=timeout or self._timeout,
                 )

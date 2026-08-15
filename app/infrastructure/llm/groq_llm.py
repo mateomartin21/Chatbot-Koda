@@ -7,7 +7,7 @@ from collections.abc import Sequence
 import httpx
 
 from app.config import Settings
-from app.domain.ports.llm_port import EjecutorHerramientas, Herramienta, LLMPort
+from app.domain.ports.llm_port import EjecutorHerramientas, Herramienta, Imagen, LLMPort
 
 _URL = "https://api.groq.com/openai/v1/chat/completions"
 
@@ -27,6 +27,12 @@ class GroqLLM(LLMPort):
     def soporta_herramientas(self) -> bool:
         return False
 
+    # El modelo de texto de Groq no ve. Decirlo hace que el gateway se lo salte
+    # cuando hay foto, en vez de dejarle contestar sobre una imagen que no ha visto.
+    @property
+    def soporta_imagenes(self) -> bool:
+        return False
+
     async def conversar(
         self,
         mensaje_usuario: str,
@@ -34,6 +40,7 @@ class GroqLLM(LLMPort):
         system_prompt: str,
         herramientas: Sequence[Herramienta] = (),
         ejecutar: EjecutorHerramientas | None = None,
+        imagen: Imagen | None = None,
     ) -> str:
         if herramientas:
             raise NotImplementedError("GroqLLM no implementa tool use")

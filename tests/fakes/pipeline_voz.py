@@ -3,7 +3,13 @@
 import asyncio
 from collections.abc import Sequence
 
-from app.domain.ports.llm_port import EjecutorHerramientas, Herramienta, LlamadaHerramienta, LLMPort
+from app.domain.ports.llm_port import (
+    EjecutorHerramientas,
+    Herramienta,
+    Imagen,
+    LlamadaHerramienta,
+    LLMPort,
+)
 from app.domain.ports.stt_port import STTPort
 from app.domain.ports.tts_port import TTSPort
 
@@ -20,13 +26,23 @@ class FakeSTT(STTPort):
 
 
 class FakeLLM(LLMPort):
-    def __init__(self, respuesta: str = "hola, soy koda", *, con_herramientas: bool = False) -> None:
+    def __init__(
+        self,
+        respuesta: str = "hola, soy koda",
+        *,
+        con_herramientas: bool = False,
+        con_imagenes: bool = False,
+    ) -> None:
         self.respuesta = respuesta
         self.falla = False
         self.retraso_segundos = 0.0  # para probar timeouts del gateway sin red real
         self.mensajes_recibidos: list[str] = []
         self.prompts_recibidos: list[str] = []
         self._con_herramientas = con_herramientas
+        self._con_imagenes = con_imagenes
+        # Las imagenes que ha llegado a ver: es lo que permite comprobar que el
+        # gateway se salta los tiers ciegos en vez de mandarles la foto.
+        self.imagenes_recibidas: list[Imagen] = []
         # Herramientas que este doble "decide" llamar antes de contestar, en orden.
         self.llamadas_a_emitir: list[LlamadaHerramienta] = []
         self.resultados_recibidos: list[str] = []
@@ -35,6 +51,10 @@ class FakeLLM(LLMPort):
     def soporta_herramientas(self) -> bool:
         return self._con_herramientas
 
+    @property
+    def soporta_imagenes(self) -> bool:
+        return self._con_imagenes
+
     async def conversar(
         self,
         mensaje_usuario: str,
@@ -42,8 +62,11 @@ class FakeLLM(LLMPort):
         system_prompt: str,
         herramientas: Sequence[Herramienta] = (),
         ejecutar: EjecutorHerramientas | None = None,
+        imagen: Imagen | None = None,
     ) -> str:
         self.mensajes_recibidos.append(mensaje_usuario)
+        if imagen is not None:
+            self.imagenes_recibidas.append(imagen)
         self.prompts_recibidos.append(system_prompt)
         if self.retraso_segundos:
             await asyncio.sleep(self.retraso_segundos)
