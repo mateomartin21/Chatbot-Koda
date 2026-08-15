@@ -245,9 +245,21 @@ async function cargarHistorial() {
   let turnos = [];
   try {
     const resp = await fetch("/api/conversacion");
-    if (!resp.ok) return;
+    if (!resp.ok) {
+      // Al runner no se le dice nada — ver arriba — pero callarse del todo hizo que
+      // un servidor con la versión vieja se pareciera exactamente a "no había
+      // conversación". Costó media hora averiguar cuál de las dos era.
+      console.warn(
+        `No se pudo cargar el historial (HTTP ${resp.status}).` +
+          (resp.status === 404
+            ? " El servidor no tiene la ruta /api/conversacion: reinícialo."
+            : ""),
+      );
+      return;
+    }
     turnos = await resp.json();
-  } catch {
+  } catch (error) {
+    console.warn("No se pudo cargar el historial:", error);
     return;
   }
   if (!turnos.length) return;
