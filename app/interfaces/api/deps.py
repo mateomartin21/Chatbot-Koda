@@ -18,6 +18,7 @@ from app.container import Container, build_container
 from app.domain.models import Mensaje, Runner
 from app.domain.ports.email_port import EmailPort
 from app.domain.ports.llm_port import LLMPort
+from app.domain.ports.moderacion_port import ModeracionImagenPort
 from app.domain.ports.repositories import (
     ConversacionRepo,
     MemoriaRepo,
@@ -80,6 +81,10 @@ def get_tts_port(container: Container = Depends(get_container)) -> TTSPort:
 
 def get_voz_realtime_port(container: Container = Depends(get_container)) -> VozRealtimePort:
     return container.voz_realtime
+
+
+def get_moderacion(container: Container = Depends(get_container)) -> ModeracionImagenPort:
+    return container.moderacion
 
 
 def get_coach_system_prompt(container: Container = Depends(get_container)) -> str:

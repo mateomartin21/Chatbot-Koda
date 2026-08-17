@@ -108,6 +108,17 @@ class ConversacionRepo(ABC):
         """
         ...
 
+    @abstractmethod
+    async def borrar(self, runner_id: UUID) -> int:
+        """Borra la conversacion de ESTE runner y devuelve cuantos mensajes se fueron.
+
+        Borra la capa 2 y SOLO la capa 2. El perfil y los hechos duraderos no se tocan:
+        "limpiar el chat" y "olvida lo que te conte" son dos cosas distintas, y quien
+        pulsa lo primero casi nunca quiere lo segundo — quiere la pantalla limpia, no
+        empezar a explicarse otra vez desde el principio.
+        """
+        ...
+
 
 class MemoriaRepo(ABC):
     """Capa 3: los hechos duraderos (§2)."""

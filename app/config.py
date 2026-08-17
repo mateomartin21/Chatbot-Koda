@@ -42,6 +42,15 @@ class Settings(BaseSettings):
     s3_bucket: str | None = None
     s3_signed_url_ttl_seconds: int = 600
 
+    # Moderacion de las fotos con Rekognition (docs/adr/ADR-023). Se puede apagar para
+    # desarrollo, pero en produccion deberia ir encendida: la aplicacion es publica y
+    # nadie garantiza que lo que llegue sea la pantalla de un reloj.
+    # Necesita el permiso rekognition:DetectModerationLabels; sin el, deja pasar y avisa.
+    moderacion_imagenes: bool = True
+    # 80 es el punto donde Rekognition deja de dar falsos positivos con fotos normales.
+    # Mas bajo empieza a tumbar fotos de gente corriendo en pantalon corto.
+    moderacion_min_confianza: int = 80
+
     # SMTP (PROVIDER_EMAIL=smtp). El plan B del correo mientras SES siga en sandbox:
     # en sandbox SES solo entrega a direcciones verificadas a mano, y eso deja fuera a
     # cualquiera que no conozcas de antemano. Ver docs/adr/ADR-022.

@@ -53,3 +53,4 @@ Las negativas son obligatorias. Un ADR sin consecuencias negativas es publicidad
 | [020](ADR-020-nova-habla-y-sonnet-decide.md) | Nova Sonic habla, el modelo grande decide | Aceptado |
 | [021](ADR-021-una-sola-conversacion-por-runner.md) | Una sola conversación por runner, que sobrevive a cerrar la pestaña | Aceptado |
 | [022](ADR-022-el-correo-tiene-que-llegar-a-cualquiera.md) | El correo tiene que llegarle a alguien que no conozco | Aceptado |
+| [023](ADR-023-moderar-las-fotos-y-poder-limpiar-el-chat.md) | Moderar las fotos, y poder limpiar el chat sin perder la memoria | Aceptado |

@@ -1998,3 +1998,65 @@ async function cargarAvisos() {
 }
 
 init();
+
+/* ---------------------------------------------------------------------------
+   Limpiar la conversación
+
+   Vacía el hilo y nada más. El perfil, el plan y los hechos que Koda ha ido
+   aprendiendo se quedan donde están: "limpiar el chat" y "olvídame" son cosas
+   distintas, y quien pulsa esto quiere la pantalla en blanco, no volver a explicar
+   desde cero que le molesta la rodilla.
+
+   Confirmación en dos pasos en vez de un confirm() del navegador: el botón se
+   convierte en su propia advertencia, y una segunda pulsación es la que borra. Un
+   diálogo nativo se acepta por reflejo; un botón que cambia de texto y de color,
+   no tanto.
+   --------------------------------------------------------------------------- */
+
+const botonLimpiar = document.getElementById("limpiar-chat");
+const mensajeLimpiar = document.getElementById("mensaje-limpiar");
+const TEXTO_LIMPIAR = "Limpiar la conversación";
+let limpiarArmado = false;
+let devolverBoton = null;
+
+function desarmarLimpiar() {
+  limpiarArmado = false;
+  clearTimeout(devolverBoton);
+  botonLimpiar.querySelector(".texto-boton").textContent = TEXTO_LIMPIAR;
+  botonLimpiar.classList.remove("boton-peligro");
+}
+
+botonLimpiar?.addEventListener("click", async () => {
+  if (!limpiarArmado) {
+    limpiarArmado = true;
+    botonLimpiar.querySelector(".texto-boton").textContent = "Pulsa otra vez para borrarla";
+    botonLimpiar.classList.add("boton-peligro");
+    // Si se deja armado y alguien vuelve al panel media hora después, el siguiente
+    // clic no debería borrar nada sin avisar.
+    devolverBoton = setTimeout(desarmarLimpiar, 6000);
+    return;
+  }
+
+  desarmarLimpiar();
+  conCargador(botonLimpiar, true);
+  try {
+    const resp = await fetch("/api/conversacion", { method: "DELETE" });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const { borrados } = await resp.json();
+
+    // Se vacía lo que hay en pantalla y se deja la bienvenida, que es el estado de
+    // una conversación que no ha empezado.
+    burbujas.querySelectorAll(".mensaje, .separador-dia").forEach((n) => n.remove());
+    document.getElementById("bienvenida")?.removeAttribute("hidden");
+
+    mensajeLimpiar.textContent = borrados
+      ? `Listo, ${borrados} mensajes fuera. Tu perfil y tu plan siguen ahí.`
+      : "No había nada que limpiar.";
+  } catch (error) {
+    console.warn("No se pudo limpiar la conversación:", error);
+    mensajeLimpiar.textContent = "No pudimos limpiarla. Inténtalo otra vez.";
+  } finally {
+    mensajeLimpiar.hidden = false;
+    conCargador(botonLimpiar, false);
+  }
+});

@@ -159,6 +159,9 @@ class InMemoryConversacionRepo(ConversacionRepo):
     async def ultimos(self, runner_id: UUID, limite: int = 10) -> list[Mensaje]:
         return self._por_runner.get(runner_id, [])[-limite:]
 
+    async def borrar(self, runner_id: UUID) -> int:
+        return len(self._por_runner.pop(runner_id, []))
+
 
 class InMemoryMemoriaRepo(MemoriaRepo):
     def __init__(self) -> None:

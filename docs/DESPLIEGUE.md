@@ -95,6 +95,43 @@ correo es un puerto.
 
 ---
 
+## 0 bis. Deja que Koda pueda moderar las fotos
+
+La moderación de imágenes ([ADR-023](adr/ADR-023-moderar-las-fotos-y-poder-limpiar-el-chat.md))
+llama a Rekognition, y ese permiso **no viene con el resto de la política de `koda-dev`**.
+Sin él Koda no se rompe: deja pasar la foto y escribe un aviso en el log. O sea que falla
+en silencio, que es la peor forma de fallar.
+
+Consola de IAM → usuarios → `koda-dev` → **Añadir permisos** → *Crear política en línea*:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "rekognition:DetectModerationLabels",
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+`DetectModerationLabels` no admite recursos concretos: siempre es `*`. Es la única acción
+que se concede, así que el permiso queda igual de acotado.
+
+Para comprobar que ha surtido efecto, manda una foto cualquiera desde la aplicación y
+mira que **no** aparezca esto en el log:
+
+```bash
+docker compose logs app | grep "Rekognition no pudo revisar"
+```
+
+Si prefieres no usarla, `MODERACION_IMAGENES=false` en el `.env` la apaga del todo y el
+arranque deja de intentarlo.
+
+---
+
 ## 1. Crear la instancia
 
 Consola de EC2 → **Lanzar instancia**.

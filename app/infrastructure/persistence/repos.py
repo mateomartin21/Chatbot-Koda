@@ -5,7 +5,7 @@ from dataclasses import fields
 from datetime import UTC, date, datetime, time
 from uuid import UUID, uuid4
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.models import (
@@ -440,6 +440,16 @@ class SqlConversacionRepo(ConversacionRepo):
             )
             for f in reversed(filas)
         ]
+
+    async def borrar(self, runner_id: UUID) -> int:
+        # El WHERE por runner_id no es una optimizacion, es la frontera de aislamiento:
+        # un DELETE sin el borraria las conversaciones de todo el mundo. Por eso el
+        # metodo del puerto lo lleva en la firma y no puede llamarse sin el.
+        resultado = await self._session.execute(
+            delete(ConversacionORM).where(ConversacionORM.runner_id == runner_id)
+        )
+        await self._session.commit()
+        return resultado.rowcount or 0
 
 
 class SqlMemoriaRepo(MemoriaRepo):

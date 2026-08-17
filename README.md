@@ -44,7 +44,7 @@ sesión del día.
 | **Se niega cuando toca** | Un maratón en seis semanas no es un plan, es una lesión. Koda lo rechaza y propone una distancia alcanzable el mismo día |
 | **Recuerda** | Si le cuentas que te molesta la rodilla, sigue ahí semanas después. La conversación sobrevive a cerrar la pestaña |
 | **Te escribe** | Sesión del día a las 6:00, check-in a las 20:00 y resumen los domingos, en tu hora local |
-| **Lee tu reloj** | Le mandas una foto de la pantalla del reloj y da la sesión por hecha con los números que lee |
+| **Lee tu reloj** | Le mandas una foto de la pantalla del reloj y da la sesión por hecha con los números que lee. La foto se revisa, se usa y **no se guarda en ningún sitio** |
 | **Se instala** | Es una PWA: se añade a la pantalla de inicio y abre a pantalla completa |
 
 ---
@@ -379,14 +379,14 @@ app/
 └── container.py       el único sitio que conoce las implementaciones concretas
 
 tests/{unit,integration,security,fakes}/
-docs/{contexto,adr}/   contexto del proyecto y 22 decisiones documentadas
+docs/{contexto,adr}/   contexto del proyecto y 23 decisiones documentadas
 ```
 
 ---
 
 ## Decisiones de arquitectura
 
-Veintidós decisiones, cada una con su contexto, sus alternativas descartadas y **sus
+Veintitrés decisiones, cada una con su contexto, sus alternativas descartadas y **sus
 consecuencias negativas**. Un ADR sin consecuencias negativas es publicidad, no
 ingeniería. Un ADR nunca se edita: cuando cambia la decisión, otro lo supersede.
 
@@ -414,6 +414,7 @@ ingeniería. Un ADR nunca se edita: cuando cambia la decisión, otro lo supersed
 | [020](docs/adr/ADR-020-nova-habla-y-sonnet-decide.md) | Nova Sonic habla, el modelo grande decide |
 | [021](docs/adr/ADR-021-una-sola-conversacion-por-runner.md) | Una sola conversación por runner, que sobrevive a cerrar la pestaña |
 | [022](docs/adr/ADR-022-el-correo-tiene-que-llegar-a-cualquiera.md) | El correo tiene que llegarle a alguien cuyo correo no se sabe |
+| [023](docs/adr/ADR-023-moderar-las-fotos-y-poder-limpiar-el-chat.md) | Moderar las fotos, y poder limpiar el chat sin perder la memoria |
 
 El contexto completo del proyecto, en cinco minutos de lectura, está en
 [docs/contexto/00-CONTEXTO.md](docs/contexto/00-CONTEXTO.md).
@@ -438,6 +439,11 @@ importa tanto como lo construido:
   nada caduca solo: una lesión de hace ocho meses no debería condicionar el plan de hoy.
 - **Escalar horizontalmente.** El scheduler vive en memoria, así que la aplicación corre
   con un solo worker. Sacarlo del proceso es el primer cambio si esto tuviera que crecer.
+- **Borrar la cuenta entera.** Se puede vaciar la conversación, pero no desaparecer:
+  eso implica tokens, planes, recordatorios y el propio runner
+  ([ADR-023](docs/adr/ADR-023-moderar-las-fotos-y-poder-limpiar-el-chat.md)).
+- **Moderar el texto y la voz.** Las fotos sí pasan por Rekognition antes de llegar al
+  modelo; lo que se escribe o se dice, no.
 - **Integración con Strava o Garmin**, que sustituiría el registro por foto.
 
 ---

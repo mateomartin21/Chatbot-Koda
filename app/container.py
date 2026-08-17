@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.config import Settings, get_settings
 from app.domain.ports.email_port import EmailPort
 from app.domain.ports.llm_port import LLMPort
+from app.domain.ports.moderacion_port import ModeracionImagenPort
 from app.domain.ports.stt_port import STTPort
 from app.domain.ports.tts_port import TTSPort
 from app.domain.ports.voz_realtime_port import VozRealtimePort
@@ -17,6 +18,7 @@ from app.infrastructure.email.smtp import SMTPEmail
 from app.infrastructure.llm.bedrock_converse import BedrockConverse
 from app.infrastructure.llm.groq_llm import GroqLLM
 from app.infrastructure.llm.model_gateway import ModelGatewayLLM
+from app.infrastructure.moderacion.rekognition import RekognitionModeracion, SinModeracion
 from app.infrastructure.persistence.db import crear_session_factory
 from app.infrastructure.stt.groq_whisper import GroqWhisperSTT
 from app.infrastructure.stt.transcribe_aws import TranscribeAWS
@@ -36,6 +38,8 @@ class Container:
     llm: LLMPort
     tts: TTSPort
     voz_realtime: VozRealtimePort
+    # Revisa las fotos ANTES de que salgan hacia el modelo (docs/adr/ADR-023).
+    moderacion: ModeracionImagenPort
     # Modelo pequeno para la extraccion de memoria: es clasificacion, no razonamiento
     # (docs/contexto/05-MEMORIA.md §5). Va aparte del gateway a proposito — aqui no
     # interesa la calidad del tier 1, interesa que sea barato.
@@ -90,6 +94,12 @@ def build_container(settings: Settings | None = None) -> Container:
     # cae al endpoint POST /api/mensajes de siempre (STT+LLM gateway+TTS de arriba).
     voz_realtime: VozRealtimePort = NovaSonicRealtime(settings)
 
+    # Objeto nulo cuando esta apagada: asi el endpoint de fotos no tiene que
+    # preguntar si hay moderacion configurada, solo llamarla.
+    moderacion: ModeracionImagenPort = (
+        RekognitionModeracion(settings) if settings.moderacion_imagenes else SinModeracion()
+    )
+
     coach_system_prompt = (_PROMPTS_DIR / "coach_system.md").read_text(encoding="utf-8")
 
     # Tres prompts, y cada uno es para un papel distinto:
@@ -119,6 +129,7 @@ def build_container(settings: Settings | None = None) -> Container:
         llm=llm,
         tts=tts,
         voz_realtime=voz_realtime,
+        moderacion=moderacion,
         llm_barato=llm_barato,
         coach_system_prompt=coach_system_prompt,
         coach_voz_prompt=coach_voz_prompt,

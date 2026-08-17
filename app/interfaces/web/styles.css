@@ -633,6 +633,13 @@ label {
   position: relative;
 }
 
+/* El botón armado para borrar. No es rojo desde el principio a propósito: un botón
+   permanentemente en rojo se vuelve paisaje y deja de avisar de nada. */
+.boton-peligro {
+  border-color: var(--alerta);
+  color: var(--alerta);
+}
+
 /* --- Un dato que no cuadra, dicho donde está el dato ------------------------- */
 
 .campo-mal,

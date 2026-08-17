@@ -14,6 +14,7 @@ from app.application.procesar_mensaje import procesar_mensaje
 from app.container import Container
 from app.domain.models import Mensaje, Runner
 from app.domain.ports.llm_port import LLMPort
+from app.domain.ports.moderacion_port import ModeracionImagenPort
 from app.domain.ports.stt_port import STTPort
 from app.domain.ports.tts_port import TTSPort
 from app.infrastructure.imagenes.sanitizar import ImagenInvalida, sanear
@@ -24,6 +25,7 @@ from app.interfaces.api.deps import (
     get_container,
     get_current_runner,
     get_llm_port,
+    get_moderacion,
     get_repos,
     get_scheduler,
     get_stt_port,
@@ -80,6 +82,27 @@ async def ver_conversacion(
     ]
 
 
+@router.delete("/conversacion", status_code=200)
+async def limpiar_conversacion(
+    runner: Runner = Depends(get_current_runner),
+    repos: Repos = Depends(get_repos),
+) -> dict[str, int]:
+    """Vacia el hilo de ESTE runner. No toca ni el perfil ni los hechos duraderos.
+
+    Es la capa 2 de la memoria y solo la capa 2. "Limpiar el chat" y "olvida lo que te
+    conte" son cosas distintas: quien pulsa lo primero quiere la pantalla en blanco, no
+    volver a explicar desde cero que le molesta la rodilla. Si algun dia hace falta lo
+    segundo, es otro boton y otra conversacion con el usuario, no un efecto secundario
+    de este.
+
+    El runner sale del JWT, como en todo lo demas: un borrado que aceptara un id por
+    parametro seria el IDOR mas caro del proyecto.
+    """
+    borrados = await repos.conversaciones.borrar(runner.id)
+    logger.info("Conversacion limpiada: %d mensajes", borrados)
+    return {"borrados": borrados}
+
+
 @router.post("/mensajes", response_model=MensajeRespuesta)
 async def enviar_mensaje(
     runner: Runner = Depends(get_current_runner),
@@ -89,6 +112,7 @@ async def enviar_mensaje(
     stt: STTPort = Depends(get_stt_port),
     llm: LLMPort = Depends(get_llm_port),
     tts: TTSPort = Depends(get_tts_port),
+    moderacion: ModeracionImagenPort = Depends(get_moderacion),
     system_prompt: str = Depends(get_coach_system_prompt),
     repos: Repos = Depends(get_repos),
     container: Container = Depends(get_container),
@@ -108,6 +132,20 @@ async def enviar_mensaje(
             logger.info("Foto rechazada en el saneado")
             return MensajeRespuesta(
                 texto="Esa foto no la puedo abrir. Prueba con otra, o dímelo hablando.",
+                audio_base64=None,
+            )
+
+        # Y aqui, antes de gastar una llamada al modelo. Al runner se le contesta sin
+        # decirle que categoria salto: eso seria escribirle el manual para esquivarla.
+        # El motivo va al log, que es donde sirve de algo. Ver ADR-023.
+        veredicto = await moderacion.revisar(imagen)
+        if not veredicto.apta:
+            logger.info("Foto rechazada por moderacion: %s", veredicto.motivo)
+            return MensajeRespuesta(
+                texto=(
+                    "Esa foto no la puedo mirar. Mándame la pantalla de tu reloj o "
+                    "cuéntame el entrenamiento hablando."
+                ),
                 audio_base64=None,
             )
 

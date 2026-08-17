@@ -287,6 +287,26 @@
         <div id="lista-avisos"></div>
         <p id="mensaje-avisos" class="nota" role="status" hidden></p>
       </section>
+
+      <section class="bloque-avisos">
+        <h3>
+          <svg aria-hidden="true"><use href="/iconos.svg#i-plan" /></svg>
+          Tu conversación
+        </h3>
+        <!-- Se dice exactamente qué desaparece y qué no. Alguien que borra el chat
+             esperando que Koda olvide su lesión, y descubre que la recuerda, se siente
+             engañado con razón. -->
+        <p class="letra-chica">
+          Se borran los mensajes de este hilo. <strong>Tu perfil, tu plan y lo que Koda
+          ha aprendido de ti se quedan</strong>: esto vacía la pantalla, no le borra la
+          memoria.
+        </p>
+        <button type="button" id="limpiar-chat" class="boton boton-secundario">
+          <span class="texto-boton">Limpiar la conversación</span>
+          <span class="cargador" aria-hidden="true"></span>
+        </button>
+        <p id="mensaje-limpiar" class="nota" role="status" hidden></p>
+      </section>
     </div>
   </section>
 
