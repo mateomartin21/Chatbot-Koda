@@ -10,9 +10,18 @@ from uuid import uuid4
 
 import pytest
 
-from app.application.contexto import ReposDelCoach, construir_contexto, construir_system_prompt
+from app.application.contexto import (
+    ReposDelCoach,
+    construir_contexto,
+    construir_system_prompt,
+    dias_de_carrera_por_semana,
+    perfil_hablado,
+    plan_hablado,
+)
 from app.application.planes import DatosDelPlan, crear_plan
 from app.domain.models import Hecho, Mensaje, Runner
+from app.domain.training.factory import estrategia_para
+from app.domain.training.modelos import Distancia, Nivel, Objetivo, PlanActivo
 from tests.fakes.repos import (
     InMemoryConversacionRepo,
     InMemoryMemoriaRepo,
@@ -240,3 +249,51 @@ async def test_si_el_ultimo_turno_es_del_runner_se_usa_igual_la_frase_de_koda(ru
     prompt = await _prompt_de(runner, repos)
 
     assert '"¿Cuantos dias por semana puedes correr?"' in prompt
+
+
+# --- Los dias del plan no son los del perfil ---------------------------------------
+#
+# Caso real: una runner puso que entrena 2 veces al dia, se guardo como 2 dias por
+# semana, y el dominio subio el plan a 3 porque con menos no se sostiene. El perfil
+# seguia diciendo 2, el contexto le contaba al modelo el valor del perfil, y Koda
+# afirmaba "tu plan es de 2 dias" sobre un plan de 3.
+
+
+def test_el_contexto_dice_los_dias_que_tiene_el_plan_no_los_que_se_pidieron():
+    runner = Runner(
+        id=uuid4(),
+        email="corredora@example.com",
+        creado_en=datetime(2026, 1, 1),
+        nivel=Nivel.PRINCIPIANTE.value,
+        dias_disponibles=2,
+    )
+    objetivo = Objetivo(distancia=Distancia.K10, fecha_carrera=date(2026, 12, 10))
+    plan = estrategia_para(Distancia.K10).generar(runner, objetivo, hoy=date(2026, 8, 16))
+
+    reales = dias_de_carrera_por_semana(plan)
+    assert reales >= 3, "el dominio sube a 3 como minimo; si esto cambia, el aviso sobra"
+    assert reales != runner.dias_disponibles
+
+    activo = PlanActivo(
+        id=uuid4(),
+        objetivo=objetivo,
+        plan=plan,
+        fecha_inicio=date(2026, 9, 28),
+        generado_en=datetime(2026, 8, 16),
+    )
+    hablado = plan_hablado(activo, None, hoy=date(2026, 8, 16))
+
+    assert f"{reales} dias de carrera por semana" in hablado
+    assert "2 dias de carrera por semana" not in hablado
+
+
+def test_el_perfil_presenta_los_dias_como_una_peticion_y_no_como_un_hecho():
+    """La diferencia entre "puede correr 2 dias" y "dice que puede correr 2 dias" es lo
+    que evita que el modelo confunda lo pedido con lo que el plan tiene."""
+    runner = Runner(
+        id=uuid4(),
+        email="corredora@example.com",
+        creado_en=datetime(2026, 1, 1),
+        dias_disponibles=2,
+    )
+    assert "dice que puede correr 2 dias" in perfil_hablado(runner)

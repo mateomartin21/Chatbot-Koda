@@ -1683,15 +1683,73 @@ function conDosPuntos(texto) {
 // El `detail` de FastAPI es una cadena cuando lo lanzamos nosotros y una lista de
 // errores cuando lo lanza la validación de pydantic. Solo se enseña el primero: son
 // mensajes escritos para una persona, no un volcado.
+// El `detail` de FastAPI viene en tres formas: un objeto {campo, mensaje} cuando lo
+// lanzamos nosotros, una cadena suelta, o la lista de pydantic. Se normaliza aquí para
+// que quien lo use no tenga que saberlo.
 async function motivoDelError(resp) {
   try {
     const { detail } = await resp.json();
-    if (typeof detail === "string") return detail;
-    if (Array.isArray(detail) && detail[0]?.msg) return detail[0].msg.replace(/^Value error, /, "");
+    if (detail && typeof detail === "object" && !Array.isArray(detail) && detail.mensaje) {
+      return { campo: detail.campo || null, mensaje: detail.mensaje };
+    }
+    if (typeof detail === "string") return { campo: null, mensaje: detail };
+    if (Array.isArray(detail) && detail[0]?.msg) {
+      return { campo: null, mensaje: detail[0].msg.replace(/^Value error, /, "") };
+    }
   } catch {
     /* respuesta sin JSON: se cae al mensaje genérico */
   }
   return null;
+}
+
+/* ---------------------------------------------------------------------------
+   Avisos pegados al campo que falla
+
+   Un mensaje al pie del formulario se lee poco: en el móvil el botón de guardar
+   suele quedar fuera de pantalla cuando el error está arriba, así que el runner
+   pulsa, no ve nada y cree que se guardó. El aviso va junto al campo, el campo se
+   marca, y se le lleva el foco: la corrección tiene que estar donde está el error.
+   --------------------------------------------------------------------------- */
+
+function limpiarAvisosDeCampo(formulario) {
+  formulario.querySelectorAll(".aviso-campo").forEach((n) => n.remove());
+  formulario.querySelectorAll("[aria-invalid]").forEach((campo) => {
+    campo.removeAttribute("aria-invalid");
+    campo.classList.remove("campo-mal");
+  });
+}
+
+function marcarCampo(idCampo, mensaje) {
+  const campo = document.getElementById(idCampo);
+  if (!campo) return false;
+
+  campo.classList.add("campo-mal");
+  campo.setAttribute("aria-invalid", "true");
+
+  const aviso = crear("p", "aviso-campo");
+  aviso.id = `${idCampo}-aviso`;
+  aviso.textContent = mensaje;
+  // role=alert para que un lector de pantalla lo cante sin tener que ir a buscarlo.
+  aviso.setAttribute("role", "alert");
+  // El select vive dentro de un envoltorio con la flecha; el aviso va después de él,
+  // no dentro, o se cuela entre el control y su icono.
+  const anclaje = campo.closest(".campo-select") || campo;
+  anclaje.insertAdjacentElement("afterend", aviso);
+
+  campo.focus({ preventScroll: true });
+  campo.scrollIntoView({ block: "center", behavior: "smooth" });
+  // Al corregir desaparece: dejar el campo en rojo mientras se arregla es castigar
+  // a alguien por estar escribiendo.
+  campo.addEventListener(
+    "input",
+    () => {
+      campo.classList.remove("campo-mal");
+      campo.removeAttribute("aria-invalid");
+      document.getElementById(`${idCampo}-aviso`)?.remove();
+    },
+    { once: true },
+  );
+  return true;
 }
 
 function aSegundos(texto) {
@@ -1798,6 +1856,8 @@ formPerfil.addEventListener("submit", async (evento) => {
   evento.preventDefault();
   const boton = formPerfil.querySelector("button[type=submit]");
   conCargador(boton, true);
+  limpiarAvisosDeCampo(formPerfil);
+  mensajePerfil.hidden = true;
 
   // Solo se mandan los campos con valor: null en la API significa "no me lo has
   // dicho", nunca "bórralo".
@@ -1813,10 +1873,12 @@ formPerfil.addEventListener("submit", async (evento) => {
   const segundos = aSegundos(campoMarcaTiempo.value);
   const hayDistancia = Boolean(cuerpo.marca_distancia_km);
   if (hayDistancia !== Boolean(segundos)) {
-    mensajePerfil.textContent = hayDistancia
-      ? "Falta el tiempo de esa marca: sin él no puedo calcular tus ritmos."
-      : "¿Sobre qué distancia es ese tiempo?";
-    mensajePerfil.hidden = false;
+    marcarCampo(
+      hayDistancia ? "perfil-marca-tiempo" : "perfil-marca-km",
+      hayDistancia
+        ? "Falta el tiempo de esa marca: sin él no puedo calcular tus ritmos."
+        : "¿Sobre qué distancia es ese tiempo?",
+    );
     conCargador(boton, false);
     return;
   }
@@ -1828,21 +1890,29 @@ formPerfil.addEventListener("submit", async (evento) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(cuerpo),
     });
-    // Si el servidor explica QUE esta mal, se enseña su mensaje. Un "revisa los datos"
-    // genérico obliga a adivinar cuál de los seis campos es, y el que suele fallar
-    // —la marca— es justo el que no se ve a simple vista que esté mal.
-    mensajePerfil.textContent = resp.ok
-      ? "Guardado. Con esto te ajusto mejor los ritmos."
-      : (await motivoDelError(resp)) || "No pudimos guardarlo. Revisa los datos e inténtalo otra vez.";
-    // En la bienvenida, guardar es la puerta al chat: se deja leer el mensaje y
-    // se pasa.
-    if (resp.ok && panelPerfil.classList.contains("modo-bienvenida")) {
-      setTimeout(() => cerrarPanel(panelPerfil), 900);
+    if (resp.ok) {
+      mensajePerfil.textContent = "Guardado. Con esto te ajusto mejor los ritmos.";
+      mensajePerfil.hidden = false;
+      // En la bienvenida, guardar es la puerta al chat: se deja leer el mensaje y
+      // se pasa.
+      if (panelPerfil.classList.contains("modo-bienvenida")) {
+        setTimeout(() => cerrarPanel(panelPerfil), 900);
+      }
+    } else {
+      // El servidor dice qué campo falla y por qué. Si lo señala, el aviso va pegado
+      // a ese campo; si no lo señala, al pie, que es donde estaba antes todo.
+      const motivo = await motivoDelError(resp);
+      const señalado = motivo?.campo ? marcarCampo(motivo.campo, motivo.mensaje) : false;
+      if (!señalado) {
+        mensajePerfil.textContent =
+          motivo?.mensaje || "No pudimos guardarlo. Revisa los datos e inténtalo otra vez.";
+        mensajePerfil.hidden = false;
+      }
     }
   } catch {
     mensajePerfil.textContent = "No pudimos guardarlo. Inténtalo otra vez.";
-  } finally {
     mensajePerfil.hidden = false;
+  } finally {
     conCargador(boton, false);
   }
 });

@@ -82,11 +82,67 @@ class PerfilPeticion(BaseModel):
     # La manda el navegador solo: nadie deberia elegir su huso en un desplegable
     # cuando el aparato ya lo sabe. De aqui sale la hora a la que llegan los avisos.
     zona_horaria: str | None = Field(None, max_length=64)
-    edad: int | None = Field(None, ge=10, le=100)
+    # Los rangos NO se declaran aqui con ge/le a proposito. Pydantic los rechazaria
+    # con un mensaje en ingles del estilo "Input should be less than or equal to 100",
+    # que el runner no entiende y que ademas no dice que campo mirar. Se comprueban
+    # abajo, uno a uno, con un mensaje escrito para una persona y el id del campo que
+    # falla, para que el formulario pueda señalarlo.
+    edad: int | None = None
     nivel: str | None = None
-    dias_disponibles: int | None = Field(None, ge=2, le=7)
-    marca_distancia_km: float | None = Field(None, gt=0, le=100)
-    marca_tiempo_seg: float | None = Field(None, gt=0)
+    dias_disponibles: int | None = None
+    marca_distancia_km: float | None = None
+    marca_tiempo_seg: float | None = None
+
+
+# id del campo en el formulario -> como se le cuenta al runner lo que no cuadra.
+_NIVELES = {"principiante", "intermedio", "avanzado"}
+_LARGO_MAXIMO_DEL_NOMBRE = 60
+
+
+def _lo_que_no_cuadra(p: PerfilPeticion) -> tuple[str, str] | None:
+    """El primer dato que no se sostiene, como (campo, mensaje). None si todo bien.
+
+    Se devuelve solo el primero: enseñar seis errores a la vez es una forma elegante de
+    que no se lea ninguno. Se corrige uno, se vuelve a enviar y aparece el siguiente.
+    """
+    if p.nombre is not None and len(p.nombre.strip()) > _LARGO_MAXIMO_DEL_NOMBRE:
+        return "perfil-nombre", f"Ese nombre no cabe. Como mucho {_LARGO_MAXIMO_DEL_NOMBRE} caracteres."
+
+    if p.edad is not None and not 10 <= p.edad <= 100:
+        return "perfil-edad", "La edad tiene que estar entre 10 y 100 años."
+
+    if p.nivel and p.nivel not in _NIVELES:
+        return "perfil-nivel", "Elige principiante, intermedio o avanzado."
+
+    if p.dias_disponibles is not None and not 2 <= p.dias_disponibles <= 7:
+        return (
+            "perfil-dias",
+            "Los días por semana van de 2 a 7. Con menos de 2 no hay plan que sostener, "
+            "y con 7 no te queda descanso.",
+        )
+
+    if p.marca_distancia_km is not None and not 1 <= p.marca_distancia_km <= 100:
+        return "perfil-marca-km", "La distancia de la marca va de 1 a 100 km."
+
+    if p.marca_tiempo_seg is not None and p.marca_tiempo_seg <= 0:
+        return "perfil-marca-tiempo", "El tiempo de la marca tiene que ser mayor que cero."
+
+    # El dominio ya se defiende solo: una marca imposible se ignora y los ritmos salen
+    # estimados. Pero ignorarla en silencio deja al runner creyendo que dio su dato, y
+    # preguntandose despues por que sus ritmos son aproximados. Es la MISMA funcion del
+    # dominio: si la regla se copiara aqui, un dia dirian cosas distintas.
+    if (
+        p.marca_distancia_km
+        and p.marca_tiempo_seg
+        and not marca_creible(p.marca_distancia_km, p.marca_tiempo_seg)
+    ):
+        return (
+            "perfil-marca-tiempo",
+            "Esa marca da un ritmo imposible. Revisa el tiempo: 25:30 son veinticinco "
+            "minutos y medio, no veinticinco segundos.",
+        )
+
+    return None
 
 
 class PlanPeticion(BaseModel):
@@ -177,23 +233,12 @@ async def guardar_perfil(
     repos: Repos = Depends(get_repos),
     scheduler: APSchedulerAvisos = Depends(get_scheduler),
 ) -> PerfilRespuesta:
-    # El dominio ya se defiende solo: una marca imposible se ignora y los ritmos salen
-    # estimados. Pero ignorarla en silencio deja al runner creyendo que dio su dato, y
-    # preguntandose por que sus ritmos son aproximados. Aqui se le dice, y se le dice
-    # antes de que empiece a hablar con Koda. Es la MISMA funcion del dominio: si la
-    # regla se copiara aqui, un dia dirian cosas distintas.
-    if (
-        peticion.marca_distancia_km
-        and peticion.marca_tiempo_seg
-        and not marca_creible(peticion.marca_distancia_km, peticion.marca_tiempo_seg)
-    ):
-        raise HTTPException(
-            status_code=422,
-            detail=(
-                "Esa marca da un ritmo imposible. Revisa el tiempo: 25:30 son "
-                "veinticinco minutos y medio, no veinticinco segundos."
-            ),
-        )
+    # Se avisa antes de que el runner se ponga a hablar, y se dice QUE campo mirar:
+    # un "revisa los datos" generico obliga a adivinar cual de los seis falla.
+    problema = _lo_que_no_cuadra(peticion)
+    if problema is not None:
+        campo, mensaje = problema
+        raise HTTPException(status_code=422, detail={"campo": campo, "mensaje": mensaje})
 
     actualizado = await actualizar_perfil(runner, DatosPerfil(**peticion.model_dump()), repos.runners)
     if peticion.zona_horaria and peticion.zona_horaria != runner.zona_horaria:

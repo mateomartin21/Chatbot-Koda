@@ -28,7 +28,13 @@ from app.domain.ports.repositories import (
     RecordatorioRepo,
     RunnerRepo,
 )
-from app.domain.training.modelos import Nivel, PlanActivo, SesionProgramada, TipoSesion
+from app.domain.training.modelos import (
+    Nivel,
+    PlanActivo,
+    PlanEntrenamiento,
+    SesionProgramada,
+    TipoSesion,
+)
 
 _TURNOS_DE_LA_VENTANA = 10
 _HECHOS_VIGENTES = 25
@@ -99,6 +105,18 @@ def sesion_hablada(programada: SesionProgramada) -> str:
     return f"{cuando}: {sesion.descripcion}"
 
 
+def dias_de_carrera_por_semana(plan: PlanEntrenamiento) -> int:
+    """Los dias que de verdad se corre, contados sobre la semana mas cargada.
+
+    Se toma el maximo y no la primera semana porque las de descarga y las de taper
+    tienen menos sesiones, y decir el numero de una semana suave describiria mal el plan.
+    """
+    return max(
+        (sum(1 for s in semana.sesiones if s.tipo != TipoSesion.DESCANSO) for semana in plan.semanas),
+        default=0,
+    )
+
+
 def plan_hablado(activo: PlanActivo, proxima: SesionProgramada | None, hoy: date | None = None) -> str:
     plan = activo.plan
     volumenes = [s.volumen_km for s in plan.semanas]
@@ -117,6 +135,12 @@ def plan_hablado(activo: PlanActivo, proxima: SesionProgramada | None, hoy: date
         )
     lineas += [
         f"Empieza en {volumenes[0]:.0f} km por semana y llega a {max(volumenes):.0f} km.",
+        # Los dias los dice el PLAN, no el perfil. El perfil guarda lo que el runner
+        # pidio; el dominio puede haberlo subido (hay un minimo de 3 para que un plan
+        # se sostenga) y entonces los dos numeros no coinciden. Sin esta linea, el
+        # modelo solo veia el del perfil y afirmaba "tu plan es de 2 dias" sobre un
+        # plan de 3 — una afirmacion falsa dicha con toda la seguridad del mundo.
+        f"El plan tiene {dias_de_carrera_por_semana(plan)} dias de carrera por semana.",
         f"Ritmos: facil {plan.zonas.facil}, tirada larga {plan.zonas.larga}, "
         f"tempo {plan.zonas.tempo}, series {plan.zonas.intervalos}.",
     ]
@@ -143,7 +167,10 @@ def perfil_hablado(runner: Runner) -> str:
     if runner.nivel:
         partes.append(f"nivel {Nivel.desde_texto(runner.nivel).value}")
     if runner.dias_disponibles:
-        partes.append(f"puede correr {runner.dias_disponibles} dias por semana")
+        # "dice que" a proposito: esto es lo que el runner PIDIO, no lo que su plan
+        # tiene. El dominio puede haberlo subido, y confundir las dos cosas es lo que
+        # llevaba al coach a afirmar dias que el plan no tenia.
+        partes.append(f"dice que puede correr {runner.dias_disponibles} dias por semana")
     if runner.marca_distancia_km and runner.marca_tiempo_seg:
         minutos, segundos = divmod(round(runner.marca_tiempo_seg), 60)
         partes.append(f"su mejor marca es {runner.marca_distancia_km} km en {minutos}:{segundos:02d}")

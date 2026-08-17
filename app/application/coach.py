@@ -18,6 +18,7 @@ from app.application.contexto import (
     ReposDelCoach,
     construir_contexto,
     construir_system_prompt,
+    dias_de_carrera_por_semana,
     fecha_hablada,
     perfil_hablado,
     plan_hablado,
@@ -233,7 +234,21 @@ async def _crear_plan(runner: Runner, repos: ReposDelCoach, argumentos: dict, ho
         return f"No se pudo crear el plan: {invalido}"
 
     proxima = await consultar_proxima_sesion(runner.id, repos.planes, hoy=hoy)
-    return plan_hablado(activo, proxima, hoy)
+    hablado = plan_hablado(activo, proxima, hoy)
+
+    # Si el dominio no pudo dar los dias que se pidieron, se dice. Un plan necesita al
+    # menos tres dias para sostenerse, asi que pedir dos devuelve tres — y callarselo
+    # hacia que el runner creyera que su plan era de dos, porque es lo que el habia
+    # puesto en su perfil. Un limite que no se explica se lee como un error.
+    pedidos = (await repos.runners.obtener(runner.id) or runner).dias_disponibles
+    reales = dias_de_carrera_por_semana(activo.plan)
+    if pedidos and reales and pedidos != reales:
+        hablado += (
+            f" OJO: pidio {pedidos} dias por semana y el plan tiene {reales}. "
+            f"Diselo y explica por que: con menos de tres dias no hay plan que se sostenga. "
+            f"NO le digas que su plan es de {pedidos} dias, porque no lo es."
+        )
+    return hablado
 
 
 async def _consultar_plan(runner: Runner, repos: ReposDelCoach, hoy: date) -> str:

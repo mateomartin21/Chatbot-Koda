@@ -633,6 +633,23 @@ label {
   position: relative;
 }
 
+/* --- Un dato que no cuadra, dicho donde está el dato ------------------------- */
+
+.campo-mal,
+.campo-mal:focus {
+  border-color: var(--alerta);
+  /* El borde solo no basta: hay quien no distingue rojo de gris, y el aviso de texto
+     de debajo es lo que de verdad comunica. Esto es refuerzo, no el mensaje. */
+  box-shadow: 0 0 0 1px var(--alerta);
+}
+
+.aviso-campo {
+  margin: var(--e-1) 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--alerta);
+}
+
 .campo .icono-campo {
   position: absolute;
   left: var(--e-3);
