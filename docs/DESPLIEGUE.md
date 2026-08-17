@@ -220,6 +220,34 @@ getent hosts 54-91-20-3.sslip.io
 > Es un apaño explícito y tiene su precio: el enlace es feo y depende de un servicio
 > de terceros. Está en las consecuencias negativas del ADR-019.
 
+### Si prefieres un nombre que se lea mejor, sin pagar
+
+Un subdominio gratuito de [DuckDNS](https://www.duckdns.org) sirve igual y se lee mucho
+mejor que la IP con guiones. Es lo que usa el despliegue actual:
+
+1. Entra con una cuenta de Google o GitHub y crea el subdominio, por ejemplo `kodarunning`.
+2. En **current ip**, sustituye la que rellena sola —que es la TUYA, no la del servidor—
+   por la IP elástica de la instancia, y pulsa *update ip*.
+3. Comprueba que resuelve antes de tocar el servidor:
+
+```bash
+getent hosts kodarunning.duckdns.org
+```
+
+Caddy admite **varios nombres separados por comas**, así que se pueden mantener los dos y
+no romper los enlaces que ya se hayan compartido:
+
+```bash
+DOMINIO=kodarunning.duckdns.org, 44-208-133-232.sslip.io
+APP_BASE_URL=https://kodarunning.duckdns.org
+```
+
+`APP_BASE_URL` se queda con **uno solo**: es el que se pega dentro de los enlaces mágicos.
+Un `docker compose up -d` y Caddy pide el certificado del nombre nuevo al arrancar.
+
+> Sigue siendo el dominio de otro, así que la consecuencia negativa del ADR-019 no
+> desaparece: solo se lee mejor.
+
 ---
 
 ## 4. Clonar y configurar

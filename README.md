@@ -4,7 +4,7 @@
 te calcula un plan real, se acuerda de lo que le dices y te escribe cada mañana con la
 sesión del día.
 
-**Aplicación desplegada:** https://44-208-133-232.sslip.io
+**Aplicación desplegada:** https://kodarunning.duckdns.org
 
 <p align="center">
   <img src="app/interfaces/web/capturas/conversacion.jpg" alt="Conversación por voz con Koda desde el móvil" width="260">
