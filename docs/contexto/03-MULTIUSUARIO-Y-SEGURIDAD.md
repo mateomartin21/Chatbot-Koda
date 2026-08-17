@@ -69,7 +69,7 @@ sequenceDiagram
 | Detalle | Por qué |
 |---|---|
 | **Guardar el hash del token, no el token** | Si te roban la BD, no pueden iniciar sesión como nadie |
-| **Un solo uso** (`usado_en`) | Un enlace reenviado o cacheado por un antivirus de correo no vale dos veces |
+| **Ventana de 15 minutos** (`expira_en`) | Fue de un solo uso hasta [ADR-024](../adr/ADR-024-el-enlace-magico-vale-durante-su-ventana.md): los antivirus de correo abren los enlaces para analizarlos, gastaban el único uso y dejaban fuera al destinatario. `usado_en` se sigue guardando, pero solo para auditar |
 | **Expiración de 15 min** | Ventana corta de ataque |
 | **Respuesta 200 siempre** | No revelar qué correos están registrados (enumeración de usuarios) |
 | **Rate limit** (5/hora por correo, 20/hora por IP) | Evitar que te usen como máquina de spam y quemen tu cuota de SES |

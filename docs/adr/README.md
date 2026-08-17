@@ -37,7 +37,7 @@ Las negativas son obligatorias. Un ADR sin consecuencias negativas es publicidad
 | [004](ADR-004-aws-servicios-gestionados.md) | Servicios gestionados de AWS para IA y correo | Aceptado |
 | [005](ADR-005-memoria-tres-capas.md) | Memoria en tres capas en lugar de historial completo | Aceptado |
 | [006](ADR-006-dominio-determinista.md) | Reglas de entrenamiento deterministas, no delegadas al LLM | Aceptado |
-| [007](ADR-007-auth-enlace-magico.md) | Autenticación por enlace mágico, sin contraseñas | Aceptado |
+| [007](ADR-007-auth-enlace-magico.md) | Autenticación por enlace mágico, sin contraseñas | Aceptado · *el uso único lo supersede [024](ADR-024-el-enlace-magico-vale-durante-su-ventana.md)* |
 | [008](ADR-008-entradas-multimodales.md) | Entradas multimodales con vídeo como alcance opcional | Aceptado |
 | [009](ADR-009-groq-stt-temporal.md) | Groq Whisper como STT temporal mientras Transcribe se desbloquea | Aceptado |
 | [010](ADR-010-sin-dominio-propio-para-ses.md) | Sin dominio propio para SES — se acepta el riesgo de spam | Aceptado |
@@ -54,3 +54,4 @@ Las negativas son obligatorias. Un ADR sin consecuencias negativas es publicidad
 | [021](ADR-021-una-sola-conversacion-por-runner.md) | Una sola conversación por runner, que sobrevive a cerrar la pestaña | Aceptado |
 | [022](ADR-022-el-correo-tiene-que-llegar-a-cualquiera.md) | El correo tiene que llegarle a alguien que no conozco | Aceptado |
 | [023](ADR-023-moderar-las-fotos-y-poder-limpiar-el-chat.md) | Moderar las fotos, y poder limpiar el chat sin perder la memoria | Aceptado |
+| [024](ADR-024-el-enlace-magico-vale-durante-su-ventana.md) | El enlace mágico vale durante su ventana, no una sola vez | Aceptado |

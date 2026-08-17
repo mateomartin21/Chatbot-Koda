@@ -70,7 +70,7 @@ Hoy no se programa lógica de negocio. Hoy se elimina el riesgo que puede hundir
 - [ ] `POST /api/auth/solicitar` y `GET /api/auth/canjear` ([03 §3](03-MULTIUSUARIO-Y-SEGURIDAD.md))
 - [ ] `get_current_runner()` en `deps.py`
 - [ ] Pantalla de entrada: campo de correo → "revisa tu bandeja"
-- [ ] **Los dos primeros tests de `tests/security/`**: token de un solo uso y token caducado
+- [ ] **Los dos primeros tests de `tests/security/`**: ventana del token y token caducado
 
 **Tarde (~4 h) — Pipeline de voz**
 - [ ] Puertos `STTPort` / `TTSPort` / `LLMPort`

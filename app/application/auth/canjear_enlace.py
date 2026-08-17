@@ -1,7 +1,8 @@
 """Caso de uso: canjear un enlace magico por una sesion.
 
-Un solo uso, comprobacion de expiracion, comparacion del hash en tiempo constante
-la hace el propio lookup por indice — el secreto nunca se compara en claro.
+El token vale mientras no caduque y admite mas de un canje dentro de esa ventana
+(ADR-024). El secreto nunca se compara en claro: se busca por hash, y la comparacion
+en tiempo constante la hace el propio indice.
 Ver docs/contexto/03-MULTIUSUARIO-Y-SEGURIDAD.md §3.
 """
 
@@ -31,5 +32,9 @@ async def canjear_enlace(
     if runner is None or not runner.activo:
         return None
 
-    await tokens.marcar_usado(registro.id, ahora)
+    # Solo la primera vez: `usado_en` es un dato de auditoria — cuando se estreno este
+    # enlace — y sobrescribirlo en cada canje lo convertiria en "la ultima vez", que no
+    # es lo que dice el nombre ni lo que sirve para investigar nada.
+    if registro.usado_en is None:
+        await tokens.marcar_usado(registro.id, ahora)
     return runner

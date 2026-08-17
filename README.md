@@ -379,14 +379,14 @@ app/
 └── container.py       el único sitio que conoce las implementaciones concretas
 
 tests/{unit,integration,security,fakes}/
-docs/{contexto,adr}/   contexto del proyecto y 23 decisiones documentadas
+docs/{contexto,adr}/   contexto del proyecto y 24 decisiones documentadas
 ```
 
 ---
 
 ## Decisiones de arquitectura
 
-Veintitrés decisiones, cada una con su contexto, sus alternativas descartadas y **sus
+Veinticuatro decisiones, cada una con su contexto, sus alternativas descartadas y **sus
 consecuencias negativas**. Un ADR sin consecuencias negativas es publicidad, no
 ingeniería. Un ADR nunca se edita: cuando cambia la decisión, otro lo supersede.
 
@@ -398,7 +398,7 @@ ingeniería. Un ADR nunca se edita: cuando cambia la decisión, otro lo supersed
 | [004](docs/adr/ADR-004-aws-servicios-gestionados.md) | Servicios gestionados de AWS |
 | [005](docs/adr/ADR-005-memoria-tres-capas.md) | Memoria en tres capas |
 | [006](docs/adr/ADR-006-dominio-determinista.md) | Reglas de entrenamiento deterministas |
-| [007](docs/adr/ADR-007-auth-enlace-magico.md) | Autenticación por enlace mágico |
+| [007](docs/adr/ADR-007-auth-enlace-magico.md) | Autenticación por enlace mágico — *el uso único lo supersede 024* |
 | [008](docs/adr/ADR-008-entradas-multimodales.md) | Entradas multimodales |
 | [009](docs/adr/ADR-009-groq-stt-temporal.md) | Groq Whisper como STT temporal |
 | [010](docs/adr/ADR-010-sin-dominio-propio-para-ses.md) | Sin dominio propio para SES: se acepta el riesgo de spam |
@@ -415,6 +415,7 @@ ingeniería. Un ADR nunca se edita: cuando cambia la decisión, otro lo supersed
 | [021](docs/adr/ADR-021-una-sola-conversacion-por-runner.md) | Una sola conversación por runner, que sobrevive a cerrar la pestaña |
 | [022](docs/adr/ADR-022-el-correo-tiene-que-llegar-a-cualquiera.md) | El correo tiene que llegarle a alguien cuyo correo no se sabe |
 | [023](docs/adr/ADR-023-moderar-las-fotos-y-poder-limpiar-el-chat.md) | Moderar las fotos, y poder limpiar el chat sin perder la memoria |
+| [024](docs/adr/ADR-024-el-enlace-magico-vale-durante-su-ventana.md) | El enlace mágico vale durante su ventana, no una sola vez |
 
 El contexto completo del proyecto, en cinco minutos de lectura, está en
 [docs/contexto/00-CONTEXTO.md](docs/contexto/00-CONTEXTO.md).

@@ -107,7 +107,15 @@ class Recordatorio:
 
 @dataclass
 class TokenAcceso:
-    """Token de un solo uso para el enlace magico. Se guarda el hash, nunca el token en claro."""
+    """Token del enlace magico. Se guarda el hash, nunca el token en claro.
+
+    Vale mientras no caduque, y puede canjearse mas de una vez dentro de esa ventana.
+    NO es de un solo uso, y eso es deliberado — ver ADR-024. Un solo uso suena mas
+    seguro y en la practica dejaba fuera a gente: los escaneres de correo corporativos
+    abren los enlaces para analizarlos, se llevan el unico uso, y la persona hace clic
+    sobre un enlace ya muerto. Cuando el enlace magico es la unica puerta, eso no es
+    un fallo de comodidad: es no poder entrar.
+    """
 
     id: UUID
     runner_id: UUID
@@ -115,7 +123,9 @@ class TokenAcceso:
     expira_en: datetime
     creado_en: datetime
     ip_solicitud: str | None = None
+    # Cuando se canjeo por PRIMERA vez. Se guarda para poder auditar, no para decidir:
+    # la validez la marca solo la caducidad.
     usado_en: datetime | None = None
 
     def esta_vigente(self, ahora: datetime) -> bool:
-        return self.usado_en is None and ahora < self.expira_en
+        return ahora < self.expira_en

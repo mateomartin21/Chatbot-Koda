@@ -2101,8 +2101,8 @@ botonLimpiar?.addEventListener("click", async () => {
 
    La salida es que sea la propia aplicación quien canjee el token: la misma
    petición de siempre, hecha desde dentro, deja la cookie donde toca. No hay
-   secreto nuevo ni endpoint nuevo — es el mismo enlace de un solo uso, que sigue
-   caducando a los 15 minutos y sigue sirviendo una sola vez.
+   secreto nuevo ni endpoint nuevo — es el mismo enlace de siempre, que sigue
+   caducando a los 15 minutos (ADR-024).
 
    El bloque solo se enseña cuando Koda corre instalada. En un navegador normal
    sobra, y una opción que sobra es una opción que confunde.
@@ -2141,12 +2141,11 @@ botonCanjear?.addEventListener("click", async () => {
     if (!sesion.ok) throw new Error("sin sesion");
     location.reload();
   } catch {
-    // El motivo casi siempre es el mismo: lo tocaron en el correo antes de copiarlo,
-    // y un enlace de un solo uso se gasta al abrirse. Se dice con todas las letras,
-    // porque "invalido o caducado" deja a la persona sin saber qué hacer distinto.
+    // Desde ADR-024 el enlace admite varios canjes, así que si falla es que han
+    // pasado los quince minutos o el token está mal copiado. Se dice qué hacer.
     mensajeLogin.textContent =
-      "Ese enlace ya no vale: se gasta al abrirlo. Pide uno nuevo aquí arriba y, " +
-      "en el correo, cópialo sin tocarlo.";
+      "Ese enlace ya caducó o está incompleto. Pide uno nuevo aquí arriba y " +
+      "cópialo entero.";
     mensajeLogin.hidden = false;
     campoEnlace.value = "";
   } finally {
