@@ -1780,8 +1780,34 @@ const camposPerfil = {
   marca_distancia_km: document.getElementById("perfil-marca-km"),
 };
 const campoMarcaTiempo = document.getElementById("perfil-marca-tiempo");
+const lecturaTiempo = document.getElementById("lectura-marca-tiempo");
+
+/* "52:30" a "52 min 30 s". El campo se rellena con un teclado numérico y sin unidades,
+   así que un 30 suelto puede ser medio minuto o media hora según lo que tuviera en la
+   cabeza quien escribe. En vez de poner una etiqueta que hay que creerse, se le enseña
+   cómo se ha leído mientras teclea. Es lo que hace imposible el error, no lo que
+   advierte de él. */
+function tiempoEnPalabras(segundos) {
+  if (!segundos) return "";
+  const horas = Math.floor(segundos / 3600);
+  const minutos = Math.floor((segundos % 3600) / 60);
+  const resto = Math.round(segundos % 60);
+  const partes = [];
+  if (horas) partes.push(`${horas} h`);
+  if (minutos || horas) partes.push(`${minutos} min`);
+  partes.push(`${resto} s`);
+  return partes.join(" ");
+}
+
+function refrescarLecturaDelTiempo() {
+  const palabras = tiempoEnPalabras(aSegundos(campoMarcaTiempo.value));
+  lecturaTiempo.textContent = palabras ? `Lo estoy leyendo como ${palabras}.` : "";
+  lecturaTiempo.hidden = !palabras;
+}
+
 campoMarcaTiempo?.addEventListener("input", () => {
   campoMarcaTiempo.value = conDosPuntos(campoMarcaTiempo.value);
+  refrescarLecturaDelTiempo();
 });
 const introPerfil = document.getElementById("intro-perfil");
 const saltarPerfil = document.getElementById("saltar-perfil");
@@ -1794,6 +1820,9 @@ async function rellenarPerfil() {
     input.value = perfil[campo] ?? "";
   });
   campoMarcaTiempo.value = deSegundos(perfil.marca_tiempo_seg);
+  // Tambien al cargar: si lo que hay guardado se leyo mal en su dia, se ve al abrir
+  // el perfil y no cuando el plan sale con ritmos raros.
+  refrescarLecturaDelTiempo();
   return perfil;
 }
 
@@ -2058,5 +2087,63 @@ botonLimpiar?.addEventListener("click", async () => {
   } finally {
     mensajeLimpiar.hidden = false;
     conCargador(botonLimpiar, false);
+  }
+});
+
+/* ---------------------------------------------------------------------------
+   Entrar desde la aplicación instalada (iOS)
+
+   Una app añadida a la pantalla de inicio tiene su propio almacén de cookies,
+   separado del de Safari y del de Chrome. El enlace del correo lo abre el
+   navegador POR DEFECTO, así que la sesión se establece allí y la aplicación
+   instalada sigue viendo la pantalla de acceso. Cambiar el navegador por defecto
+   no lo arregla: siguen siendo dos almacenes.
+
+   La salida es que sea la propia aplicación quien canjee el token: la misma
+   petición de siempre, hecha desde dentro, deja la cookie donde toca. No hay
+   secreto nuevo ni endpoint nuevo — es el mismo enlace de un solo uso, que sigue
+   caducando a los 15 minutos y sigue sirviendo una sola vez.
+
+   El bloque solo se enseña cuando Koda corre instalada. En un navegador normal
+   sobra, y una opción que sobra es una opción que confunde.
+   --------------------------------------------------------------------------- */
+
+const bloquePegar = document.getElementById("pegar-enlace");
+const campoEnlace = document.getElementById("enlace-pegado");
+const botonCanjear = document.getElementById("canjear-pegado");
+
+function corriendoComoAplicacion() {
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    // iOS no implementa display-mode y usa esta propiedad suya desde siempre.
+    window.navigator.standalone === true
+  );
+}
+
+if (bloquePegar && corriendoComoAplicacion()) bloquePegar.hidden = false;
+
+botonCanjear?.addEventListener("click", async () => {
+  // Se acepta el enlace entero o solo el token: quien copia a mano acierta a medias.
+  const pegado = campoEnlace.value.trim();
+  const token = pegado.match(/token=([\w-]+)/)?.[1] || (/^[\w-]{20,}$/.test(pegado) ? pegado : null);
+  if (!token) {
+    mensajeLogin.textContent = "Ese enlace no tiene buena pinta. Cópialo entero desde el correo.";
+    mensajeLogin.hidden = false;
+    return;
+  }
+
+  conCargador(botonCanjear, true);
+  try {
+    // La respuesta redirige a /app/; da igual dónde acabe, lo que importa es la
+    // cookie que trae. Se confirma preguntando por la sesión en vez de fiarse.
+    await fetch(`/api/auth/canjear?token=${encodeURIComponent(token)}`);
+    const sesion = await fetch("/api/auth/sesion");
+    if (!sesion.ok) throw new Error("sin sesion");
+    location.reload();
+  } catch {
+    mensajeLogin.textContent = "Ese enlace ya se usó o caducó. Pide otro y vuelve aquí.";
+    mensajeLogin.hidden = false;
+  } finally {
+    conCargador(botonCanjear, false);
   }
 });

@@ -640,6 +640,35 @@ label {
   color: var(--alerta);
 }
 
+/* El eco de cómo se ha leído el tiempo. En ámbar y no en gris: es una confirmación
+   activa, no una nota al pie que se ignora. */
+.lectura-tiempo {
+  margin: var(--e-1) 0 0;
+  font-size: 0.8125rem;
+  color: var(--amanecer);
+}
+
+/* Entrar pegando el enlace, solo visible en la aplicación instalada. */
+.pegar-enlace {
+  margin-top: var(--e-3);
+  text-align: left;
+}
+
+.pegar-enlace summary {
+  cursor: pointer;
+  font-size: 0.8125rem;
+  color: var(--bruma);
+  padding: var(--e-1) 0;
+}
+
+.pegar-enlace summary:hover {
+  color: var(--tiza);
+}
+
+.pegar-enlace .campo {
+  margin: var(--e-2) 0;
+}
+
 /* --- Un dato que no cuadra, dicho donde está el dato ------------------------- */
 
 .campo-mal,

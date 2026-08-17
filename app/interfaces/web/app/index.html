@@ -56,6 +56,27 @@
       <p class="letra-chica">
         Sin contraseñas. Te mandamos un enlace de un solo uso que caduca en 15 minutos.
       </p>
+
+      <!-- Solo aparece cuando Koda corre como aplicación instalada. En iOS, una app de
+           la pantalla de inicio tiene su propio almacén de cookies, y el enlace del
+           correo se abre en el navegador por defecto: la sesión se queda en el
+           navegador y la app sigue pidiendo el correo. Pegando el enlace aquí, es la
+           propia app la que lo canjea y la cookie cae donde tiene que caer. -->
+      <details id="pegar-enlace" class="pegar-enlace" hidden>
+        <summary>¿El enlace se te abrió en otro navegador?</summary>
+        <p class="letra-chica">
+          Mantén pulsado el enlace del correo, cópialo y pégalo aquí. Así la sesión
+          queda en la aplicación y no en el navegador.
+        </p>
+        <div class="campo">
+          <input type="url" id="enlace-pegado" inputmode="url" autocomplete="off"
+                 placeholder="Pega aquí el enlace del correo" />
+        </div>
+        <button type="button" id="canjear-pegado" class="boton boton-secundario">
+          <span class="texto-boton">Entrar con ese enlace</span>
+          <span class="cargador" aria-hidden="true"></span>
+        </button>
+      </details>
     </div>
   </main>
 
@@ -258,8 +279,14 @@
                    movil no tiene esa tecla y el campo era imposible de rellenar. -->
               <input type="text" id="perfil-marca-tiempo" placeholder="52:30"
                      inputmode="numeric" autocomplete="off"
-                     aria-describedby="ayuda-marca-tiempo" />
-              <p class="letra-chica" id="ayuda-marca-tiempo">Solo números: 5230 se convierte en 52:30.</p>
+                     aria-describedby="ayuda-marca-tiempo lectura-marca-tiempo" />
+              <p class="letra-chica" id="ayuda-marca-tiempo">
+                Solo números, de derecha a izquierda: segundos, minutos y horas.
+              </p>
+              <!-- El eco de cómo se ha leído. Una etiqueta que diga "mm:ss" obliga a
+                   confiar; esto lo demuestra mientras escribes, y es lo que evita que
+                   alguien meta 30 queriendo decir treinta minutos. -->
+              <p class="lectura-tiempo" id="lectura-marca-tiempo" role="status" hidden></p>
             </div>
           </div>
         </fieldset>
