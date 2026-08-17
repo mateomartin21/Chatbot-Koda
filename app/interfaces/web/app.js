@@ -2141,8 +2141,14 @@ botonCanjear?.addEventListener("click", async () => {
     if (!sesion.ok) throw new Error("sin sesion");
     location.reload();
   } catch {
-    mensajeLogin.textContent = "Ese enlace ya se usó o caducó. Pide otro y vuelve aquí.";
+    // El motivo casi siempre es el mismo: lo tocaron en el correo antes de copiarlo,
+    // y un enlace de un solo uso se gasta al abrirse. Se dice con todas las letras,
+    // porque "invalido o caducado" deja a la persona sin saber qué hacer distinto.
+    mensajeLogin.textContent =
+      "Ese enlace ya no vale: se gasta al abrirlo. Pide uno nuevo aquí arriba y, " +
+      "en el correo, cópialo sin tocarlo.";
     mensajeLogin.hidden = false;
+    campoEnlace.value = "";
   } finally {
     conCargador(botonCanjear, false);
   }
