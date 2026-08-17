@@ -37,3 +37,8 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
+# Habilidades de agentes instaladas en local. No forman parte del proyecto.
+.agents/
+.claude/
+skills-lock.json

@@ -6,6 +6,11 @@ sesión del día.
 
 **Aplicación desplegada:** https://kodarunning.duckdns.org
 
+**Vídeo de demostración (2:36):** https://youtu.be/amRwL2bmFRg — grabado sobre la
+aplicación en marcha, sin montajes. En el minuto 0:23 está lo que mejor resume el
+proyecto: se le pide un maratón que no cabe en el calendario y lo rechaza en voz alta,
+proponiendo la distancia que sí cabe para esa misma fecha.
+
 <p align="center">
   <img src="app/interfaces/web/capturas/conversacion.jpg" alt="Conversación por voz con Koda desde el móvil" width="260">
   <img src="app/interfaces/web/capturas/plan.jpg" alt="Plan de entrenamiento generado, con el volumen por semana" width="260">
